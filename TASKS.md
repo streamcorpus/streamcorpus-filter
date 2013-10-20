@@ -17,7 +17,7 @@ framework, such as https://code.google.com/p/googletest/
 
 3. Get an estimate of baseline throughput performance using the TREC
 KBA 2013 Rated Documents Corpus described in
-[streamcorpus-filter/data/trec-kba-2013-rated-documents.md](streamcorpus-filter/data/trec-kba-2013-rated-documents.md)
+[streamcorpus-filter/data/trec-kba-2013-rated-documents.md](data/trec-kba-2013-rated-documents.md)
 
 
 Phase II:  basic use of MultiFast
