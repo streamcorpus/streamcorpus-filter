@@ -2,39 +2,39 @@
 Phase I:  Initial Tests
 -----------------------
 
-1) Harness: discuss with bauer1j and make this work again:
+1. Harness: discuss with bauer1j and make this work again:
 
    https://github.com/trec-kba/streamcorpus/tree/v0.3.0-dev/cpp
 
    https://github.com/trec-kba/streamcorpus/tree/v0.3.0-dev/examples/cpp
 
 
-2) Basic unit test: make trivial string matching baseline that is
+2. Basic unit test: make trivial string matching baseline that is
 O(n*m) as basic test for the harness that reads StreamItems --- make a
 simple text and match it.  This unit test can construct a StreamItem
 from scratch to pass into the code under test.  Use a testing
 framework, such as https://code.google.com/p/googletest/
 
-3) Get an estimate of baseline throughput performance using the TREC
+3. Get an estimate of baseline throughput performance using the TREC
 KBA 2013 Rated Documents Corpus described in
-[streamcorpus-filter/data/trec-kba-2013-rated-documents.md]
+[streamcorpus-filter/data/trec-kba-2013-rated-documents.md]()
 
 
 Phase II:  basic use of MultiFast
 ---------------------------------
 
-4) Hook up MultiFast such that it passes the basic unit test.
+4. Hook up MultiFast such that it passes the basic unit test.
 
    http://sourceforge.net/p/multifast/code/HEAD/tree/
 
-5) Get an estimate of baseline throughput perf of MultiFast using the
+5. Get an estimate of baseline throughput perf of MultiFast using the
 TREC KBA 2013 Rated Documents Corpus.
 
 
 Phase III:  assess character class issues
 -----------------------------------------
 
-6) How many of the StreamItems fail to match a name string in the
+6. How many of the StreamItems fail to match a name string in the
 provided map?  Pick an example that fails, investigate manually to
 check that it does in fact contain a string corresponding to the
 expected target_id, and figure out what is required to make it match.  
@@ -77,18 +77,18 @@ Notes from developer of MultiFast:
 Phase IV:  assess dictionary size issues
 ----------------------------------------
 
-7) using list of all titles from WP:
+7. using list of all titles from WP:
 
  - how large a data structure does MultiFast make?
  - how fast does it load into memory?
  - how does it interact with character class issues (especially tokenization)?
 
-8) measure throughput against a large portion of the WLC
+8. measure throughput against a large portion of the WLC
 
 
 Phase V:  assess multi-core matching
 ------------------------------------
 
-9) design & implement multi-core shared memory use of MultiFast
+9. design & implement multi-core shared memory use of MultiFast
 
-10) speed test on AWS EC2 cc2.8xlarge using 32 cores / 64 GB RAM
+10. speed test on AWS EC2 cc2.8xlarge using 32 cores / 64 GB RAM
