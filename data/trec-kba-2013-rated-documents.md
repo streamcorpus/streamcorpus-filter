@@ -22,33 +22,34 @@ from target_id to a list of name strings.
 This python function shows how to load a StreamItem using the
 stream_id from the directory hierarchy in the tarball:
 
-def find_stream_item(stream_id):
-     '''
-     Load a StreamItem from a directory built from stream_id, which is
-a unique identifier.  The flat files in this directory tree are
-one-item-long "chunk" files.
+    def find_stream_item(stream_id):
+        '''
 
-For example:
+        Load a StreamItem from a directory built from stream_id, which
+        is a unique identifier.  The flat files in this directory tree
+        are one-item-long "chunk" files.
 
-  stream_id=1352256037-857c0a52772cb30600f281b2ac5bae71
+        For example:
 
---> loads:  trec-kba-2013-rated-chunks-indexed/8/5/7/1352256037-857c0a52772cb30600f281b2ac5bae71.sc
+        stream_id=1352256037-857c0a52772cb30600f281b2ac5bae71
 
-     '''
-     epoch_ticks, doc_id = stream_id.split('-')
-     path_1, path_2, path_3 = list(doc_id[:3])
-     i_path = os.path.join('trec-kba-2013-rated-chunks-indexed', path_1, path_2, path_3, stream_id) + '.sc'
-     if not os.path.exists(i_path):
-         return None
+        --> loads:  trec-kba-2013-rated-chunks-indexed/8/5/7/1352256037-857c0a52772cb30600f281b2ac5bae71.sc
 
-     ## Thrift is self-delimiting, so applying python's list
-     ## constructor executes the __iter__method on Chunk and
-     ## instantiates all of the StreamItem objects in the file loaded
-     ## from location "i_path".  In this case, we know there is only
-     ## one, so we take the first (and only item) from the list.
-     si = list(streamcorpus.Chunk(i_path))[0]
-     assert si.stream_id == stream_id
-     return si
+        '''
+        epoch_ticks, doc_id = stream_id.split('-')
+        path_1, path_2, path_3 = list(doc_id[:3])
+        i_path = os.path.join('trec-kba-2013-rated-chunks-indexed', path_1, path_2, path_3, stream_id) + '.sc'
+        if not os.path.exists(i_path):
+            return None
+
+        ## Thrift is self-delimiting, so applying python's list
+        ## constructor executes the __iter__method on Chunk and
+        ## instantiates all of the StreamItem objects in the file loaded
+        ## from location "i_path".  In this case, we know there is only
+        ## one, so we take the first (and only item) from the list.
+        si = list(streamcorpus.Chunk(i_path))[0]
+        assert si.stream_id == stream_id
+        return si
 
 
 What is a chunk file?
