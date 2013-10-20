@@ -4,9 +4,17 @@ Phase I:  Initial Tests
 
 1. Harness: discuss with bauer1j and make this work again:
 
+   https://github.com/trec-kba/streamcorpus/tree/v0.3.0-dev/examples/cpp
+
+
+That examples relies on these thrift-generated classes, 
+
    https://github.com/trec-kba/streamcorpus/tree/v0.3.0-dev/cpp
 
-   https://github.com/trec-kba/streamcorpus/tree/v0.3.0-dev/examples/cpp
+
+which are OUT OF DATE, and need to be regenerated using:
+
+   thrift --gen cpp if/streamcorpus-v0_3_0.thrift
 
 
 2. Basic unit test: make trivial string matching baseline that is
