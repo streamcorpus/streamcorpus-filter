@@ -1,3 +1,9 @@
+# emacs
+*~
+
+# Python
+*.py[oc]
+
 # Compiled Object files
 *.slo
 *.lo
