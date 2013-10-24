@@ -18,7 +18,7 @@ typedef string target_id
  */
 typedef string name
 
-struct Filter {
+struct FilterNames {
   /**
    * map of target_id to list of name strings.  This reflects how the
    * data is usually gathered: starting from a target_id, one scrapes
@@ -34,6 +34,6 @@ struct Filter {
    * multiple streamcorpus.Rating objects for that one name string,
    * i.e. one for each target_id.  This is redundant with the above.
    */
-  2: optional map<name, list<target_id>> names_to_target_id
+  2: optional map<name, list<target_id>> name_to_target_ids
 
 }
