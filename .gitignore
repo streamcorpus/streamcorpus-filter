@@ -17,3 +17,7 @@
 *.lai
 *.la
 *.a
+
+# thrift generated
+py/src/streamcorpus_filters/constants.py
+py/src/streamcorpus_filters/ttypes.py
