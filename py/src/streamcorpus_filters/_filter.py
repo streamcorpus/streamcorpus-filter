@@ -7,6 +7,7 @@ from __future__ import absolute_import
 
 import os
 import sys
+from cStringIO import StringIO
 
 ## import the thrift library
 from thrift import Thrift
@@ -19,6 +20,7 @@ from thrift.protocol.TBinaryProtocol import TBinaryProtocolAccelerated
 fastbinary_import_failure = None
 try:
     from thrift.protocol import fastbinary
+    raise Exception()  ## don't let this happen
     ## use faster C program to read/write
     TBinaryProtocol = TBinaryProtocolAccelerated
 
@@ -27,7 +29,7 @@ except Exception, exc:
     ## fall back to pure python
 
 ## thrift message classes from core streamcorpus library
-from streamcorpus import StreamItem, Rating, Label, Annotator, Offset, Target
+from streamcorpus import StreamItem, Rating, Label, Annotator, Offset, OffsetType, Target
 
 ## thrift message class from this package
 from streamcorpus_filters.ttypes import FilterNames
@@ -44,9 +46,11 @@ class Filter(object):
         if not os.path.exists(path_to_thrift_message):
             sys.exit('path does not exist: %r' % path_to_thrift_message)
         fh = open(path_to_thrift_message)
+        fh = StringIO(fh.read())
         i_transport = TBufferedTransport(fh)
         i_protocol = TBinaryProtocol(i_transport)
-        self.filter_names = FileNames.read(i_protocol)
+        self.filter_names = FilterNames()
+        self.filter_names.read(i_protocol)
         ## not actually required in CPython
         fh.close()
 
@@ -55,11 +59,10 @@ class Filter(object):
         '''
         if os.path.exists(path_to_thrift_message):
             print('warning: overwriting: %r' % path_to_thrift_message)
-        fh = open(path_to_thrift_message, 'wb')
-        o_transport = TBufferedTransport(fh)
-        o_protocol = TBinaryProtocol(i_transport)
-        self.filter_names.write(i_protocol)
-        fh.close()
+        o_transport = open(path_to_thrift_message, 'wb')
+        o_protocol = TBinaryProtocol(o_transport)
+        self.filter_names.write(o_protocol)
+        o_transport.close()
 
     def invert_filter_names(self):
         '''constructs FilterNames.name_to_target_ids from
@@ -97,31 +100,32 @@ self.filter_names.name_to_target_ids'''
         if not self._names:
             raise Exception('must first have a compiled set of filters')
 
-        annotator_id = 'streamcorpus_filter'
+        annotator_id = 'streamcorpus-filters'
         annotator = Annotator(annotator_id=annotator_id)
 
-        text = stream_item.body.get(content_form)
+        text = getattr(stream_item.body, content_form)
         text = text.decode('utf8')
         for i in xrange(len(text)):
             for name in self._names:
                 if name == text[i:i + len(name)]:
                     ## found one!!
-                    target = Target(target_id=target_id)
 
-                    rating = Rating(annotator=annotator, target=target)
-                    label  = Label( annotator=annotator, target=target)
-                    label.offsets[OffsetType.CHARS] = Offset(
-                        type=OffsetType.CHARS,
-                        first=i,
-                        length=len(name))
-                    
-                    if annotator_id not in stream_item.body.labels:
-                        stream_item.body.labels[annotator_id] = list()
-                    stream_item.body.labels[annotator_id].append(label)
+                    for target_id in self._names[name]:
 
-                    if annotator_id not in stream_item.ratings:
-                        stream_item.ratings[annotator_id] = list()
-                    stream_item.ratings[annotator_id].append(rating)
+                        target = Target(target_id=target_id)
 
-        return stream_item
+                        rating = Rating(annotator=annotator, target=target)
+                        label  = Label( annotator=annotator, target=target)
+                        label.offsets[OffsetType.CHARS] = Offset(
+                            type=OffsetType.CHARS,
+                            first=i,
+                            length=len(name))
+
+                        if annotator_id not in stream_item.body.labels:
+                            stream_item.body.labels[annotator_id] = list()
+                        stream_item.body.labels[annotator_id].append(label)
+
+                        if annotator_id not in stream_item.ratings:
+                            stream_item.ratings[annotator_id] = list()
+                        stream_item.ratings[annotator_id].append(rating)
 
