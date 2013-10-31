@@ -12,12 +12,12 @@ from setuptools import setup, find_packages
 
 from version import get_git_version
 VERSION, SOURCE_LABEL = get_git_version()
-PROJECT = 'streamcorpus-filters'
+PROJECT = 'streamcorpus-filter'
 AUTHOR = 'Diffeo, Inc.'
 AUTHOR_EMAIL = 'support@diffeo.com'
 DESC = 'example illustration of interfaces to use in making a faster filter in C++'
 LICENSE = 'MIT/X11 license http://opensource.org/licenses/MIT'
-URL = 'http://github.com/trec-kba/streamcorpus-filters'
+URL = 'http://github.com/trec-kba/streamcorpus-filter'
 
 def read_file(file_name):
     file_path = os.path.join(

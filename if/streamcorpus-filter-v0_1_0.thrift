@@ -1,8 +1,8 @@
 
 
 
-namespace py  streamcorpus_filters
-namespace cpp streamcorpus_filters
+namespace py  streamcorpus_filter
+namespace cpp streamcorpus_filter
 
 /**
  * target_id: unique identifier for a filtering target.  Typically a

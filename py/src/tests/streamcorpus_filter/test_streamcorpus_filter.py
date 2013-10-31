@@ -2,11 +2,11 @@
 import os
 import json
 from streamcorpus import StreamItem, ContentItem
-from streamcorpus_filters import Filter
-from streamcorpus_filters.ttypes import FilterNames
+from streamcorpus_filter import Filter
+from streamcorpus_filter.ttypes import FilterNames
 
 
-def test_streamcorpus_filters_save_load():
+def test_streamcorpus_filter_save_load():
     filter = Filter()
 
     ## path to test data
@@ -36,7 +36,7 @@ def test_streamcorpus_filters_save_load():
     
     filter.load_filter_names(path_to_thrift_message)
 
-def test_streamcorpus_filters_compile_apply():
+def test_streamcorpus_filter_compile_apply():
 
     ## path that we will READ to --- with our invented file extension "scf"
     path_to_thrift_message = os.path.join(os.path.dirname(__file__), '../../../../data/test-name-strings.scf')
@@ -54,4 +54,4 @@ def test_streamcorpus_filters_compile_apply():
     
     assert stream_item.ratings
         
-    assert stream_item.ratings['streamcorpus-filters'][0].target.target_id == "https://twitter.com/BethMRamsay"
+    assert stream_item.ratings['streamcorpus-filter'][0].target.target_id == "https://twitter.com/BethMRamsay"
