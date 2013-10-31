@@ -6,4 +6,5 @@ build:
 	mv gen-py/streamcorpus_filters/constants.py src/streamcorpus_filters/
 	rm -rf gen-py
 
-
+install: build
+	python setup.py install
