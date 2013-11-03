@@ -32,7 +32,7 @@ except Exception, exc:
 from streamcorpus import StreamItem, Rating, Label, Annotator, Offset, OffsetType, Target
 
 ## thrift message class from this package
-from streamcorpus_filters.ttypes import FilterNames
+from streamcorpus_filter.ttypes import FilterNames
 
 class Filter(object):
 
@@ -100,7 +100,7 @@ self.filter_names.name_to_target_ids'''
         if not self._names:
             raise Exception('must first have a compiled set of filters')
 
-        annotator_id = 'streamcorpus-filters'
+        annotator_id = 'streamcorpus-filter'
         annotator = Annotator(annotator_id=annotator_id)
 
         text = getattr(stream_item.body, content_form)
