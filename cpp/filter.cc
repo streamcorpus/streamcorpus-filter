@@ -179,12 +179,12 @@ int main(int argc, char **argv) {
 
 			names_t  names;
             	      
-	    		for(const auto& pr : filter_names.name_to_target_ids)
+	    		for(auto& pr : filter_names.name_to_target_ids)
 	    			names.push_back(&(pr.first));
 
 	    		// SEARCH CYCLE ########################################################################
 
-			name_t *matched_name = nullptr;
+			const name_t *matched_name = nullptr;
 			pos_t   pos = content.begin();
 
 			while ((pos = multisearch(pos, content.end(), names, matched_name)) != content.end()) {

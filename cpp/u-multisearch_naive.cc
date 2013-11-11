@@ -5,7 +5,7 @@ using namespace std;
 int main() {
 	vector<name_t>		names_str  {"aaa","bbb"};
 	names_t			names_p;   for(name_t &n:  names_str)  names_p.push_back(&n);
-	name_t			*matched_name;
+	const name_t		*matched_name;
 
 	{ ////////////////////////////////////////////////  FIND AAA, BBB
 	string			content    ="aaa bbb aaa z";

@@ -6,9 +6,9 @@ streamcorpus_src=/tr/sc-lvv-v0.3.0-dev/cpp
 
 
 ###########################################  Compile flags
-COMMON   = -Wall -std=c++11
+COMMON   = -Wall -std=c++0x
 O_FLAGS  +=  -O3  -march=native -DNDEBUG  
-D_FLAGS  +=  -O0  -DDEBUG -ggdb3 -D_GLIBCXX_DEBUG -fdelete-null-pointer-checks  -fstack-protector -ftrapv -fbounds-check
+D_FLAGS  +=  -O0  -DDEBUG -ggdb3 -D_GLIBCXX_DEBUG -fdelete-null-pointer-checks  -fstack-protector -fbounds-check
 CXXFLAGS += $(COMMON) $(D_FLAGS) 
 
 
@@ -19,6 +19,11 @@ thrift_generated= \
 	build/filternames_constants.h  \
 	build/filternames_types.cpp  \
 	build/filternames_types.h 
+
+default:
+	@echo "Please select spesific target."
+	@echo "	run -- run benchmark"
+	@echo "	test -- unit test"
 
 
 run:	filter
@@ -45,7 +50,7 @@ $(thrift_generated): filternames.thrift
 
 multisearch_naive.o:   multisearch.h multisearch_naive.cc 
 
-u-multisearch_naive:   multisearch_naive.o u-multisearch_naive.o 
+u-multisearch_naive:  multisearch_naive.o u-multisearch_naive.o  
 	$(CXX) $(CXXFLAGS) -o $@ $?
 
 test:     u-multisearch_naive
@@ -55,4 +60,4 @@ test:     u-multisearch_naive
 #############################################
 clean:
 	rm -rf build/
-	rm -f filter u-multisearch_naive
+	rm -f filter u-multisearch_naive *.o

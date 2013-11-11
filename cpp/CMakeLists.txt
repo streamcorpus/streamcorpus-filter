@@ -1,6 +1,6 @@
 #
 SET (CMAKE_BUILD_TYPE Debug)
-#SET (CMAKE_VERBOSE_MAKEFILE on)
+SET (CMAKE_VERBOSE_MAKEFILE on)
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -Wall")
 
@@ -44,5 +44,5 @@ add_library (
 )
 
 ###  TARGET
-add_executable(filter filter.cc multisearch_naive.cc multisearch.h)
+add_executable(filter filter.cc multisearch.h multisearch_naive.cc)
 target_link_libraries(filter  ${Boost_LIBRARIES} ${THRIFT_LIB} streamcorpus filternames)

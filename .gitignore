@@ -24,4 +24,6 @@ py/src/streamcorpus_filters/constants.py
 py/src/streamcorpus_filters/ttypes.py
 
 # C++
-u-multisearch_naive
+cpp/u-multisearch_naive
+cpp/build
+cpp/filter
