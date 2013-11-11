@@ -6,7 +6,7 @@ DONE: (by bauer1j)
 
 
 
-DONE:  updated from v<F9>
+DONE:  updated from John
 
 	That examples relies on these thrift-generated classes, 
 

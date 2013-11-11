@@ -5,6 +5,13 @@ output=/tmp/filtered.sc
 streamcorpus_src=/tr/sc-lvv-v0.3.0-dev/cpp
 
 
+###########################################  Compile flags
+COMMON   = -Wall -std=c++11
+O_FLAGS  +=  -O3  -march=native -DNDEBUG  
+D_FLAGS  +=  -O0  -DDEBUG -ggdb3 -D_GLIBCXX_DEBUG -fdelete-null-pointer-checks  -fstack-protector -ftrapv -fbounds-check
+CXXFLAGS += $(COMMON) $(D_FLAGS) 
+
+
 ####################################################
 
 thrift_generated= \
@@ -33,9 +40,19 @@ $(thrift_generated): filternames.thrift
 	mkdir -p build 
 	thrift  --out build --gen cpp  filternames.thrift
 
-#build:
-#	mkdir -p build 
+###########################################  Unit tests                   
 
+
+multisearch_naive.o:   multisearch.h multisearch_naive.cc 
+
+u-multisearch_naive:   multisearch_naive.o u-multisearch_naive.o 
+	$(CXX) $(CXXFLAGS) -o $@ $?
+
+test:     u-multisearch_naive
+	./u-multisearch_naive
+
+
+#############################################
 clean:
 	rm -rf build/
-	rm -f filter
+	rm -f filter u-multisearch_naive

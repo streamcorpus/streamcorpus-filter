@@ -3,6 +3,7 @@
 
 # Python
 *.py[oc]
+py/ve/
 
 # Compiled Object files
 *.slo
@@ -22,5 +23,5 @@
 py/src/streamcorpus_filters/constants.py
 py/src/streamcorpus_filters/ttypes.py
 
-# misc files
-py/ve/
+# C++
+u-multisearch_naive
