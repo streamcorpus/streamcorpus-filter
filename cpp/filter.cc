@@ -137,7 +137,8 @@ int main(int argc, char **argv) {
 	
 	// Read and process all stream items
 	StreamItem stream_item;
-	int cnt=0;
+	long total_content_size=0;
+	int stream_items_count=0;
 	int matches=0;
 	int written=0;
 	clog << "Reading stream item content from : " << text_source << endl;
@@ -166,12 +167,12 @@ int main(int argc, char **argv) {
 	    			actual_text_source = "raw";
 	    			if (content.size() <= 0) {
 	    				// If all applicable text sources are empty, we have a problem and exit with an error
-	    				cerr << cnt << " Error, doc id:" << stream_item.doc_id << " was empty." << endl;
+	    				cerr << stream_items_count << " Error, doc id:" << stream_item.doc_id << " was empty." << endl;
 	    				exit(-1);
 	    			}
 	    		}
-            		
-	    		
+
+			total_content_size += content.size();
 	    		
             		
 	    		filter_names.name_to_target_ids["John Smith"] = vector<string>();
@@ -190,7 +191,7 @@ int main(int argc, char **argv) {
 			while ((pos = multisearch(pos, content.end(), names, matched_name)) != content.end()) {
 			
 				// found
-				clog << cnt << " \tdoc-id:" << stream_item.doc_id;
+				clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
 				clog << "   pos:" << pos-content.begin() << " \t" << *matched_name<< "\n";
 			
 			
@@ -271,13 +272,13 @@ int main(int argc, char **argv) {
 	    		}
 	    		
 	    		// Increment count of stream items processed
-	    		cnt++;
+	    		stream_items_count++;
 	    	}
 
 		catch (TTransportException e) {
 			// Vital to flush the buffered output or you will lose the last one
 			transportOutput->flush();
-			clog << "Total stream items processed: " << cnt << endl;
+			clog << "Total stream items processed: " << stream_items_count << endl;
 			clog << "Total matches : " << matches << endl;
 			clog << "Total stream items written         : " << written << endl;
 			if (negate) {
@@ -288,6 +289,9 @@ int main(int argc, char **argv) {
 	}
 
 	auto diff = chrono::high_resolution_clock ::now() - start;
-	clog << "run time: " << chrono::duration_cast<chrono::seconds>(diff).count() << " sec" << endl;
+	int sec = chrono::duration_cast<chrono::seconds>(diff).count();
+	clog << "run time: " << sec << " sec" << endl;
+	clog << "stream items/sec: " << double(stream_items_count)/sec<< " sec" << endl;
+	clog << "MB/sec: " << double(total_content_size)/1000000/sec<< " sec" << endl;
 }
 
