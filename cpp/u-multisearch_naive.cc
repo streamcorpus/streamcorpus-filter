@@ -12,11 +12,13 @@ int main() {
 	vector<pos_t>        	results;
 	pos_t			pos        = content.begin();
 
+						// find all instanses of needle
 	while ((pos = multisearch(pos, content.end(), names_p, matched_name)) != content.end()) {
 		results.push_back(pos) ;
                 pos += matched_name->size();
 	}
 
+						// compare result with expected values
 	//CHECK_ARE_EQUAL (results, (vector<pos_t>{content.begin()+0, content.begin()+4, content.begin()+8}));
 	CHECK_ARE_EQUAL (results.size(),  3);
 	CHECK (results == (vector<pos_t>{content.begin()+0, content.begin()+4, content.begin()+8}));
@@ -28,11 +30,13 @@ int main() {
 	vector<pos_t>        	results;
 	pos_t			pos        = content.begin();
 
+						// find all instanses of needle
 	while ((pos = multisearch(pos, content.end(), names_p, matched_name)) != content.end()) {
 		results.push_back(pos) ;
                 pos += matched_name->size();
 	}
 
+						// compare result with expected values
 	CHECK_ARE_EQUAL (results.size(),  0);
 	}
 

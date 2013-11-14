@@ -12,6 +12,14 @@ There are currently 3 targets:
 Any of above will call cmake generator, run 2nd make, build executables, and run tests.
 Benchmark metrics are recored on standard output. 
 
+Units testing framework - just a simple include file "check.h" with couple
+macros.   Until recently this "framework" had 3 LOC. Please look into the
+source, it still under 50 LOC.  To test something, we just use CHECK macro:
+
+	CHECK(result,expected_value);
+
+
+
 
 
 
