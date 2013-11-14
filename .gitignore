@@ -3,6 +3,7 @@
 
 # Python
 *.py[oc]
+py/ve/
 
 # Compiled Object files
 *.slo
@@ -17,3 +18,12 @@
 *.lai
 *.la
 *.a
+
+# thrift generated
+py/src/streamcorpus_filters/constants.py
+py/src/streamcorpus_filters/ttypes.py
+
+# C++
+cpp/u-multisearch_naive
+cpp/build
+cpp/filter
