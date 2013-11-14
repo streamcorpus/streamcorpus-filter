@@ -3,6 +3,9 @@ naive multisearch and added timer code.
 
 Before running test, change pathes at Makefile config section.
 
+Directory with streamcorpus repo should have generated thrift files for cpp and 
+streamcorpus library (libstreamcorpus.a).
+
 There are currently 3 targets:
 
 	run1 -- run benchmark on corpus bundled with streamcorpus repo
