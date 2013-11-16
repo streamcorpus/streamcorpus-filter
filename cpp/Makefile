@@ -26,6 +26,7 @@ help:
 	@echo "	run1 -- run benchmark on corpus bundled with streamcorpus repo"
 	@echo "	run2 -- run benchmark on trec-kba-2013-rated-chunks-indexed"
 	@echo "	test -- unit test"
+	@echo "	clean -- remove computer generated files"
 
 ###########################################  benchmarks
 
@@ -68,4 +69,4 @@ test:     u-multisearch_naive
 #############################################
 clean:
 	rm -rf build/
-	rm -f filter u-multisearch_naive *.o
+	rm -f filter u-multisearch_naive *.o  $(output)

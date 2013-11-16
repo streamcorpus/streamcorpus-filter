@@ -111,6 +111,15 @@ int main(int argc, char **argv) {
 	
 	fn::FilterNames filter_names;
 	filter_names.read(protocolScf.get());
+	names_t  names;
+
+	filter_names.name_to_target_ids["John Smith"] = vector<string>();
+	unordered_map<string, set<string> > target_text_map;
+
+      
+	for(auto& pr : filter_names.name_to_target_ids)
+		names.push_back(&(pr.first));
+
 
 					/*// check data
 					for(const auto& pr : filter_names.target_id_to_names) {
@@ -175,14 +184,6 @@ int main(int argc, char **argv) {
 			total_content_size += content.size();
 	    		
             		
-	    		filter_names.name_to_target_ids["John Smith"] = vector<string>();
-	    		unordered_map<string, set<string> > target_text_map;
-
-			names_t  names;
-            	      
-	    		for(auto& pr : filter_names.name_to_target_ids)
-	    			names.push_back(&(pr.first));
-
 	    		// SEARCH CYCLE ########################################################################
 
 			const name_t *matched_name = nullptr;
@@ -279,8 +280,9 @@ int main(int argc, char **argv) {
 			// Vital to flush the buffered output or you will lose the last one
 			transportOutput->flush();
 			clog << "Total stream items processed: " << stream_items_count << endl;
-			clog << "Total matches : " << matches << endl;
-			clog << "Total stream items written         : " << written << endl;
+			clog << "Total matches: " << matches << endl;
+			clog << "Total stream items written: " << written << endl;
+			clog << "Names: " << names.size() << endl;
 			if (negate) {
 				clog << " (Note, stream items written were non-matching ones)" << endl;
 			}
