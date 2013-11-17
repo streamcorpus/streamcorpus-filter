@@ -54,12 +54,17 @@ class Filter(object):
         ## not actually required in CPython
         fh.close()
 
-    def save_filter_names(self, path_to_thrift_message):
+    def save_filter_names(self, path_to_thrift_message=None, file_obj=None):
         '''writes a FilterNames message to a flat file
         '''
         if os.path.exists(path_to_thrift_message):
             print('warning: overwriting: %r' % path_to_thrift_message)
-        o_transport = open(path_to_thrift_message, 'wb')
+        if path_to_thrift_message:
+            o_transport = open(path_to_thrift_message, 'wb')
+        elif file_obj:
+            o_transport = file_obj
+        else:
+            raise Exception('must specify either path_to_thrift_message or file_obj')
         o_protocol = TBinaryProtocol(o_transport)
         self.filter_names.write(o_protocol)
         o_transport.close()
