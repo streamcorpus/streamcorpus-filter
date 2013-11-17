@@ -57,9 +57,9 @@ class Filter(object):
     def save_filter_names(self, path_to_thrift_message=None, file_obj=None):
         '''writes a FilterNames message to a flat file
         '''
-        if os.path.exists(path_to_thrift_message):
-            print('warning: overwriting: %r' % path_to_thrift_message)
         if path_to_thrift_message:
+            if os.path.exists(path_to_thrift_message):
+                print('warning: overwriting: %r' % path_to_thrift_message)
             o_transport = open(path_to_thrift_message, 'wb')
         elif file_obj:
             o_transport = file_obj
