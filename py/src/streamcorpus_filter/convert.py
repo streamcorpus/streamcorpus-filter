@@ -54,7 +54,7 @@ if __name__ == '__main__':
         unicode_name_to_target_ids = json.load(i_fh)
         target_ids = set()
         for target_ids_list in unicode_name_to_target_ids.values():
-            targt_ids.update(target_ids_list)
+            target_ids.update(target_ids_list)
         log('%d names, %d target_ids loaded' % (len(unicode_name_to_target_ids), len(target_ids)))
         utf8_name_to_target_ids = convert_utf8(unicode_name_to_target_ids)
         filter_names = FilterNames(name_to_target_ids=utf8_name_to_target_ids)
