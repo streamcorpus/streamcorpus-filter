@@ -53,7 +53,11 @@ if __name__ == '__main__':
         unicode_name_to_target_ids = json.load(i_fh)
         log('%d names loaded' % len(unicode_name_to_target_ids))
         utf8_name_to_target_ids = convert_utf8(unicode_name_to_target_ids)
-        filter.filter_names = utf8_name_to_target_ids
+        filter_names = FilterNames(name_to_target_ids=utf8_name_to_target_ids)
+
+        ## reach under the head and act like we called load_filter_names
+        ## instea of building it from JSON like we did above
+        filter.filter_names = filter_names
         
     if args.output:
         o_fh = open(args.output, mode='wb')
