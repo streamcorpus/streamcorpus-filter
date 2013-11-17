@@ -5,6 +5,7 @@ import os
 import sys
 import json
 from _filter import Filter
+from ttypes import FilterNames
 
 def log(m):
     sys.stderr.write(m)
@@ -51,7 +52,10 @@ if __name__ == '__main__':
 
     else:
         unicode_name_to_target_ids = json.load(i_fh)
-        log('%d names loaded' % len(unicode_name_to_target_ids))
+        target_ids = set()
+        for target_ids_list in unicode_name_to_target_ids.values():
+            targt_ids.update(target_ids_list)
+        log('%d names, %d target_ids loaded' % (len(unicode_name_to_target_ids), len(target_ids)))
         utf8_name_to_target_ids = convert_utf8(unicode_name_to_target_ids)
         filter_names = FilterNames(name_to_target_ids=utf8_name_to_target_ids)
 
@@ -66,5 +70,5 @@ if __name__ == '__main__':
 
     filter.save_filter_names(file_obj=o_fh)
 
-    log('saved to %s' % (args.output or 'stdout'))
+    log('flushing to %s' % (args.output or 'stdout'))
     o_fh.close()
