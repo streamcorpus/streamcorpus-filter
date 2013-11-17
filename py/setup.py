@@ -23,9 +23,8 @@ def read_file(file_name):
     file_path = os.path.join(
         os.path.dirname(__file__),
         file_name
-    )
+        )
     return open(file_path).read()
-
 
 def recursive_glob(treeroot, pattern):
     results = []
@@ -33,6 +32,23 @@ def recursive_glob(treeroot, pattern):
         goodfiles = fnmatch.filter(files, pattern)
         results.extend(os.path.join(base, f) for f in goodfiles)
     return results
+
+def recursive_glob_with_tree(treeroot, pattern):
+    results = []
+    for base, dirs, files in os.walk(treeroot):
+        goodfiles = fnmatch.filter(files, pattern)
+        one_dir_results = []
+        for f in goodfiles:
+            one_dir_results.append(os.path.join(base, f))
+        results.append((base, one_dir_results))
+    return results
+
+
+def _myinstall(pkgspec):
+    setup(
+        script_args = ['-q', 'easy_install', '-v', pkgspec],
+        script_name = 'easy_install'
+    )
 
 
 class InstallTestDependencies(Command):
@@ -78,14 +94,20 @@ class PyTest(Command):
 
     def run(self):
         if self.distribution.install_requires:
-            self.distribution.fetch_build_eggs(
-                self.distribution.install_requires)
+            for ir in self.distribution.install_requires:
+                _myinstall(ir)
         if self.distribution.tests_require:
-            self.distribution.fetch_build_eggs(
-                self.distribution.tests_require)
+            for ir in self.distribution.tests_require:
+                _myinstall(ir)
 
-        errno = subprocess.call([sys.executable, 'runtests.py'])
-        raise SystemExit(errno)
+        # reload sys.path for any new libraries installed
+        import site
+        site.main()
+        print sys.path
+        # use pytest to run tests
+        pytest = __import__('pytest')
+        if pytest.main(['-n', '8', '-s', 'src']):
+            sys.exit(1)
 
 setup(
     name=PROJECT,
