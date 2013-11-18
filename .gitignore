@@ -27,3 +27,4 @@ py/src/streamcorpus_filters/ttypes.py
 cpp/u-multisearch_naive
 cpp/build
 cpp/filter
+cpp/config.mk

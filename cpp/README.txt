@@ -1,16 +1,18 @@
-This is slightly modified annotated_example.cpp with boost:regex replaced with
-naive multisearch and added timer code. 
+This is benchmark for filter directory.
 
-Before running test, change pathes at Makefile config section.
+Before running test, copy "example_config.mk" to "config.mk" and change in it config
+variables  to actual pathes that you have on your system.
 
 Directory with streamcorpus repo should have generated thrift files for cpp and 
 streamcorpus library (libstreamcorpus.a).
 
-There are currently 3 targets:
+Current make targets:
 
 	run1 -- run benchmark on corpus bundled with streamcorpus repo
       	run2 -- run benchmark on trec-kba-2013-rated-chunks-indexed
        	test -- unit test
+	clean 
+
 
 Any of above will call cmake generator, run 2nd make, build executables, and run tests.
 Benchmark metrics are recored on standard output. 
