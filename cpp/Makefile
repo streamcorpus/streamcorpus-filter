@@ -1,28 +1,61 @@
+
+# set pathes in config.mk
 include config.mk
 
-###########################################  Compile flags
-COMMON   = -Wall -std=c++0x
-O_FLAGS  +=  -O3  -march=native -DNDEBUG  
-D_FLAGS  +=  -O0  -DDEBUG -ggdb3 -D_GLIBCXX_DEBUG -fdelete-null-pointer-checks  -fstack-protector -fbounds-check
-CXXFLAGS += $(COMMON) $(D_FLAGS) 
+###########################################  Compiler flags
+              MODE ?= DEBUG
+      COMMON_FLAGS += -Wall -std=c++0x
+OPTIMIZATION_FLAGS += -O3 -DNDEBUG -march=native
+       DEBUG_FLAGS += -O0 -DDEBUG  -ggdb3 -fdelete-null-pointer-checks  -fstack-protector -fbounds-check # -D_GLIBCXX_DEBUG 
+          CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) 
 
-
-####################################################
-
-thrift_generated= \
-	build/filternames_constants.cpp  \
-	build/filternames_constants.h  \
-	build/filternames_types.cpp  \
-	build/filternames_types.h 
+###########################################
 
 help:
-	@echo "Please select spesific target."
-	@echo "	run1 -- run benchmark on corpus bundled with streamcorpus repo"
-	@echo "	run2 -- run benchmark on trec-kba-2013-rated-chunks-indexed"
-	@echo "	test -- unit test"
-	@echo "	clean -- remove computer generated files"
+	@echo "Please select specific target:"
+	@echo "	  run1 -- run benchmark on corpus bundled with streamcorpus repo"
+	@echo "	  run2 -- run benchmark on trec-kba-2013-rated-chunks-indexed"
+	@echo "	  test -- unit test"
+	@echo "	  clean -- remove computer generated files"
 
-###########################################  benchmarks
+########################################### thrift: flternames 
+
+filtername_thrift_cpp= \
+	filternames_constants.cpp  \
+	filternames_constants.h  \
+	filternames_types.cpp  \
+	filternames_types.h 
+
+filternames_thrift_o = \
+	filternames_constants.o \
+	filternames_types.o
+
+$(filtername_thrift_cpp): filternames.thrift
+	thrift  --out . --gen cpp  filternames.thrift
+
+########################################### Build filter
+
+filter:   CXXFLAGS += -I$(streamcorpus_src)
+filter:   LDFLAGS  += -L$(streamcorpus_src)
+filter:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
+
+filter.o $(filternames_thrift_o): $(filtername_thrift_cpp)
+
+filter:  $(filternames_thrift_o) multisearch_naive.o filter.o
+	$(CXX) $(CXXFLAGS) -o $@  $^ $(LDFLAGS) $(LDLIBS)
+
+###########################################  Unit tests
+
+multisearch_naive.o:   multisearch.h
+
+u-multisearch_naive:  multisearch_naive.o u-multisearch_naive.o
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
+
+test:     u-multisearch_naive
+	./u-multisearch_naive
+
+
+###########################################  Benchmarks
 
 run1:	filter
 	./filter -f $(filtername) < $(corpus) > $(output)
@@ -30,37 +63,7 @@ run1:	filter
 run2:	filter
 	find $(trec_corpus) -type f | head -n 20 | xargs cat | ./filter -f $(filtername) > $(output)
 
-###########################################  build
 
-CMakeLists.txt:   $(thrift_generated)
-
-build/Makefile:	Makefile CMakeLists.txt   $(thrift_generated) 
-	cd build && cmake -DSC=$(streamcorpus_src)  -DCMAKE_BUILD_TYPE=Debug .. 
-
-build/filter: filter.cc build/Makefile  $(thrift_generated)   Makefile
-	rm -f filter
-	cd build && make filter
-
-filter:	build/filter
-	ln -s build/filter filter
-
-$(thrift_generated): filternames.thrift
-	mkdir -p build 
-	thrift  --out build --gen cpp  filternames.thrift
-
-###########################################  Unit tests                   
-
-
-multisearch_naive.o:   multisearch.h multisearch_naive.cc 
-
-u-multisearch_naive:  multisearch_naive.o u-multisearch_naive.o  
-	$(CXX) $(CXXFLAGS) -o $@ $?
-
-test:     u-multisearch_naive
-	./u-multisearch_naive
-
-
-#############################################
+##########################################
 clean:
-	rm -rf build/
-	rm -f filter u-multisearch_naive *.o  $(output)
+	$(RM)  *.o filter u-multisearch_naive  $(output) $(filtername_thrift_cpp) 

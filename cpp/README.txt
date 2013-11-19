@@ -1,6 +1,6 @@
-This is benchmark for filter directory.
+This is directory for multisearch benchmarking.
 
-Before running test, copy "example_config.mk" to "config.mk" and change in it config
+Before running test, copy "example_config.mk" to "config.mk" and change config
 variables  to actual pathes that you have on your system.
 
 Directory with streamcorpus repo should have generated thrift files for cpp and 
@@ -13,14 +13,16 @@ Current make targets:
        	test -- unit test
 	clean 
 
+Optionally you can set compile mode with make's MODE variable. Possible
+values: DEBUG (default), OPTIMIZATION.
+For example to compile filter with debug compilation:
 
-Any of above will call cmake generator, run 2nd make, build executables, and run tests.
-Benchmark metrics are recored on standard output. 
+	make MODE=DEBUG filter
 
-Units testing framework - just a simple include file "check.h" with couple
-macros.   Until recently this "framework" had 3 LOC. Please look into the
+Units testing framework is just one include file "check.h".
+Until recently this "framework" had 3 LOC. Please look into the
 source, it still under 50 LOC, if you want to know how it works.  To test
-something, we just use CHECK macro:
+something, just use CHECK macro:
 
 	CHECK(result==expected_value);
 

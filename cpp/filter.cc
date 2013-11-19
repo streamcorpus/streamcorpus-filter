@@ -28,20 +28,20 @@ using namespace streamcorpus;
 //using namespace filternames;
 namespace fn = filternames;
 
-#include <protocol/TBinaryProtocol.h>
-#include <protocol/TDenseProtocol.h>
-#include <protocol/TJSONProtocol.h>
-#include <transport/TTransportUtils.h>
-#include <transport/TFDTransport.h>
-#include <transport/TFileTransport.h>
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/protocol/TDenseProtocol.h>
+#include <thrift/protocol/TJSONProtocol.h>
+#include <thrift/transport/TTransportUtils.h>
+#include <thrift/transport/TFDTransport.h>
+#include <thrift/transport/TFileTransport.h>
 
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
+//#include <boost/filesystem.hpp>
+//#include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 
 using namespace std;
 using namespace boost;
-using namespace boost::filesystem;
+//using namespace boost::filesystem;
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
 using namespace apache::thrift::transport;
