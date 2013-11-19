@@ -57,7 +57,7 @@ test:     u-multisearch_naive
 
 ###########################################  Benchmarks
 
-run1:	filter
+run1:	  filter
 	./filter -f $(filtername) < $(corpus) > $(output)
 
 run2:	filter

@@ -58,9 +58,8 @@ int main(int argc, char **argv) {
 	string text_source("clean_visible");
 	string filtername_path;
 	
+	///////////////////////////////////////////////////////////////////////////////  OPTIONS
 	bool negate(false);
-	
-	// Supported options.
 	po::options_description desc("Allowed options");
 
 	desc.add_options()
@@ -72,6 +71,7 @@ int main(int argc, char **argv) {
 	
 	// Parse command line options
 	po::variables_map vm;
+	
 	po::store(po::parse_command_line(argc, argv, desc), vm);
 	po::notify(vm);
 	
@@ -79,24 +79,9 @@ int main(int argc, char **argv) {
 		cout << desc << "\n";
 		return 1;
 	}
-	
-	// Create annotator object
-	sc::Annotator annotator;
-	sc::AnnotatorID annotatorID;
-	annotatorID = "example-matcher-v0.1";
-	
-	// Annotator identifier
-	annotator.annotator_id = "example-matcher-v0.1";
-	
-	// Time this annotator was started
-	sc::StreamTime streamtime;
-	time_t seconds;
-	seconds = time(NULL);
-	streamtime.epoch_ticks = seconds;
-	streamtime.zulu_timestamp = ctime(&seconds);
-	annotator.__set_annotation_time(streamtime);
 
-	// read FilterNames
+	////////////////////////////////////////////////////////////// READ FILTERNAMES
+	
 	int scf_fh = open(filtername_path.c_str(), O_RDONLY);
 
 					if(scf_fh==-1)  {
@@ -128,6 +113,25 @@ int main(int argc, char **argv) {
 							clog << '\t' << name << endl;
 						}
 					}*/
+	/////////////////////////////////////////////////////////////////////////////////// SC Objects
+	
+	// Create annotator object
+	sc::Annotator annotator;
+	sc::AnnotatorID annotatorID;
+	annotatorID = "example-matcher-v0.1";
+	
+	// Annotator identifier
+	annotator.annotator_id = "example-matcher-v0.1";
+	
+	// Time this annotator was started
+	sc::StreamTime streamtime;
+	time_t seconds;
+	seconds = time(NULL);
+	streamtime.epoch_ticks = seconds;
+	streamtime.zulu_timestamp = ctime(&seconds);
+	annotator.__set_annotation_time(streamtime);
+
+	//////////////////////////////////////////////////////////////////////////////////// SC STREAMS
 	
 	// Setup thrift reading and writing from stdin and stdout
 	int input_fd = 0;
@@ -144,7 +148,8 @@ int main(int argc, char **argv) {
 	boost::shared_ptr<atp::TBinaryProtocol>		protocolOutput(new atp::TBinaryProtocol(transportOutput));
 	transportOutput->open();
 	
-	// Read and process all stream items
+
+	///////////////////////////////////////////////////////////////////////////////  SC ITEMS READ CYCLE
 	sc::StreamItem stream_item;
 	long total_content_size=0;
 	int  stream_items_count=0;
@@ -154,9 +159,9 @@ int main(int argc, char **argv) {
 	
 	while (true) {
 		try {
-	    		// Read stream_item from stdin
+ 	    		//------------------------------------------------------------------   get item content
 	    		stream_item.read(protocolInput.get());
-	    		
+		       
 	    		string content;
 	    		string actual_text_source = text_source;
 	    		if (text_source == "clean_visible") {
@@ -184,7 +189,7 @@ int main(int argc, char **argv) {
 			total_content_size += content.size();
 	    		
             		
-	    		// SEARCH CYCLE ########################################################################
+	    		//------------------------------------------------------------------   multisearch cycle
 
 			const name_t *matched_name = nullptr;
 			pos_t   pos = content.begin();
@@ -233,6 +238,8 @@ int main(int argc, char **argv) {
 				pos += matched_name->size();
 			}
 	    		
+	    		//------------------------------------------------------------------   sc processing
+			
 	    		// Add the rating object for each target that matched in a document
 	    		for ( auto match=target_text_map.begin(); match!=target_text_map.end(); ++match) {
 	    			// Construct new rating
@@ -275,6 +282,8 @@ int main(int argc, char **argv) {
 	    		// Increment count of stream items processed
 	    		stream_items_count++;
 	    	}
+
+		//----------------------------------------------------------------------------  items read cycle exit
 
 		catch (att::TTransportException e) {
 			// Vital to flush the buffered output or you will lose the last one

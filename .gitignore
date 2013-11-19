@@ -28,3 +28,7 @@ cpp/u-multisearch_naive
 cpp/build
 cpp/filter
 cpp/config.mk
+filternames_constants.cpp
+filternames_constants.h
+filternames_types.cpp
+filternames_types.h
