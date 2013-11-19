@@ -42,6 +42,8 @@
 	using std::vector;
 #include <chrono>
 	namespace chrono = std::chrono;
+#include <limits>
+	using std::numeric_limits;
 
 // BOOST
 #include <boost/program_options.hpp>
@@ -51,27 +53,28 @@
 
 int main(int argc, char **argv) {
 	
-	clog << "Starting program" <<endl;
-	auto start = chrono::high_resolution_clock ::now();
-
-	
-	string text_source("clean_visible");
-	string filtername_path;
-	
 	///////////////////////////////////////////////////////////////////////////////  OPTIONS
-	bool negate(false);
+
+	// options
+	string		text_source	="clean_visible";
+	string		filtername_path;
+	bool		negate		= false;
+	long		max_names	= numeric_limits<long>::max();
+	long		max_items	= numeric_limits<long>::max();
+
 	po::options_description desc("Allowed options");
 
 	desc.add_options()
 		("help,h", "help message")
 		("text_source,t", po::value<string>(&text_source), "text source in stream item")
 		("negate,n", po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
-		("filtername,f", po::value<string>(&filtername_path), "filtername file")
+		("filternames,f", po::value<string>(&filtername_path), "filternames file")
+		("max-names,N", po::value<long>(&max_names), "maximum number of names to use")
+		("max-items,I", po::value<long>(&max_items), "maximum number of items to process")
 	;
 	
 	// Parse command line options
 	po::variables_map vm;
-	
 	po::store(po::parse_command_line(argc, argv, desc), vm);
 	po::notify(vm);
 	
@@ -80,14 +83,20 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	clog << "Starting program" <<endl;
+	auto start = chrono::high_resolution_clock ::now();
+	
 	////////////////////////////////////////////////////////////// READ FILTERNAMES
 	
+
 	int scf_fh = open(filtername_path.c_str(), O_RDONLY);
 
 					if(scf_fh==-1)  {
 						cerr << "error: cann't open scf file -- '" << filtername_path << "'\n";
 						exit(1);
 					}
+
+	auto reading_names_start = chrono::high_resolution_clock ::now();
 
 	boost::shared_ptr<att::TFDTransport>		innerTransportScf(new att::TFDTransport(scf_fh));
 	boost::shared_ptr<att::TBufferedTransport>	transportScf(new att::TBufferedTransport(innerTransportScf));
@@ -102,8 +111,10 @@ int main(int argc, char **argv) {
 	unordered_map<string, set<string>> target_text_map;
 
       
-	for(auto& pr : filter_names.name_to_target_ids)
+	for(auto& pr : filter_names.name_to_target_ids) {
+		if ((long)names.size() >= max_names) break;
 		names.push_back(&(pr.first));
+	}
 
 
 					/*// check data
@@ -115,6 +126,7 @@ int main(int argc, char **argv) {
 					}*/
 	/////////////////////////////////////////////////////////////////////////////////// SC Objects
 	
+
 	// Create annotator object
 	sc::Annotator annotator;
 	sc::AnnotatorID annotatorID;
@@ -131,7 +143,6 @@ int main(int argc, char **argv) {
 	streamtime.zulu_timestamp = ctime(&seconds);
 	annotator.__set_annotation_time(streamtime);
 
-	//////////////////////////////////////////////////////////////////////////////////// SC STREAMS
 	
 	// Setup thrift reading and writing from stdin and stdout
 	int input_fd = 0;
