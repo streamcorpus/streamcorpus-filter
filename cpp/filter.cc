@@ -6,16 +6,29 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <netinet/in.h>
-#include <iostream>
 #include <cstdio>
 #include <time.h>
-#include <regex>
-#include <boost/unordered_map.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/regex.hpp>
-#include <fstream>
+
+// STD
+#include <iostream>
+	using std::clog;
+	using std::cerr;
+	using std::cout;
+	using std::endl;
+
+#include <set>
+	using std::set;
+#include <unordered_map>
+	using std::unordered_map;
+#include <string>
+	using std::string;
+#include <vector>
+	using std::vector;
+//#include <fstream>
 #include <chrono>
+	using std::chrono::high_resolution_clock;
+	using std::chrono::duration_cast;
+	using std::chrono::seconds;
 
 // THRIFT -- STREAMCORUPS
 #include "streamcorpus_types.h"
@@ -25,7 +38,6 @@ using namespace streamcorpus;
 // THRIFT -- FILTERNAMES
 #include "filternames_types.h"
 #include "filternames_constants.h"
-//using namespace filternames;
 namespace fn = filternames;
 
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -35,13 +47,9 @@ namespace fn = filternames;
 #include <thrift/transport/TFDTransport.h>
 #include <thrift/transport/TFileTransport.h>
 
-//#include <boost/filesystem.hpp>
-//#include <boost/filesystem/path.hpp>
 #include <boost/program_options.hpp>
 
-using namespace std;
-using namespace boost;
-//using namespace boost::filesystem;
+
 using namespace apache::thrift;
 using namespace apache::thrift::protocol;
 using namespace apache::thrift::transport;
@@ -52,7 +60,7 @@ namespace po = boost::program_options;
 int main(int argc, char **argv) {
 	
 	clog << "Starting program" <<endl;
-	auto start = chrono::high_resolution_clock ::now();
+	auto start = std::chrono::high_resolution_clock ::now();
 
 	
 	string text_source("clean_visible");
@@ -290,8 +298,8 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	auto diff = chrono::high_resolution_clock ::now() - start;
-	int sec = chrono::duration_cast<chrono::seconds>(diff).count();
+	auto diff = std::chrono::high_resolution_clock ::now() - start;
+	int sec = std::chrono::duration_cast<std::chrono::seconds>(diff).count();
 	clog << "run time: " << sec << " sec" << endl;
 	clog << "stream items/sec: " << double(stream_items_count)/sec<< " sec" << endl;
 	clog << "MB/sec: " << double(total_content_size)/1000000/sec<< " sec" << endl;

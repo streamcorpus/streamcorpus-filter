@@ -33,7 +33,7 @@ filternames_thrift_o = \
 $(filtername_thrift_cpp): filternames.thrift
 	thrift  --out . --gen cpp  filternames.thrift
 
-########################################### Build filter
+########################################### build filter
 
 filter:   CXXFLAGS += -I$(streamcorpus_src)
 filter:   LDFLAGS  += -L$(streamcorpus_src)
