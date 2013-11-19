@@ -57,10 +57,14 @@ test:     u-multisearch_naive
 
 ###########################################  Benchmarks
 
+power_saving_off = su -c 'cpufreq-set -c0 -g performance'; su -c 'cpufreq-set -c1 -g performance'
+
 run1:	  filter
+	$(power_saving_off)
 	./filter -f $(filtername) < $(corpus) > $(output)
 
 run2:	filter
+	$(power_saving_off)
 	find $(trec_corpus) -type f | head -n 20 | xargs cat | ./filter -f $(filtername) > $(output)
 
 
