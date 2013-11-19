@@ -117,6 +117,12 @@ int main(int argc, char **argv) {
 	}
 
 
+	{
+	auto diff = chrono::high_resolution_clock ::now() - reading_names_start;
+	double sec = chrono::duration_cast<chrono::seconds>(diff).count();
+	clog << "names read time: "         << sec << " sec" << endl;
+	}
+
 					/*// check data
 					for(const auto& pr : filter_names.target_id_to_names) {
 						clog << pr.first << endl;
@@ -292,6 +298,7 @@ int main(int argc, char **argv) {
 	    		
 	    		// Increment count of stream items processed
 	    		stream_items_count++;
+			if (stream_items_count >= max_items)  throw att::TTransportException();
 	    	}
 
 		//----------------------------------------------------------------------------  items read cycle exit
@@ -302,7 +309,7 @@ int main(int argc, char **argv) {
 			clog << "Total stream items processed: " << stream_items_count << endl;
 			clog << "Total matches: "                << matches << endl;
 			clog << "Total stream items written: "   << written << endl;
-			clog << "Names: "                        << names.size() << endl;
+			clog << "Names total/used: "             << filter_names.name_to_target_ids.size() << " / " << names.size() << endl;
 			if (negate) {
 				clog << " (Note, stream items written were non-matching ones)" << endl;
 			}
@@ -311,7 +318,7 @@ int main(int argc, char **argv) {
 	}
 
 	auto diff = chrono::high_resolution_clock ::now() - start;
-	int sec = chrono::duration_cast<chrono::seconds>(diff).count();
+	double sec = chrono::duration_cast<chrono::seconds>(diff).count();
 	clog << "run time: "         << sec << " sec" << endl;
 	clog << "stream items/sec: " << double(stream_items_count)/sec<< " sec" << endl;
 	clog << "MB/sec: "           << double(total_content_size)/1000000/sec<< " sec" << endl;
