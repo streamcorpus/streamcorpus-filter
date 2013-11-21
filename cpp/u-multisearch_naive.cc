@@ -42,9 +42,3 @@ int main() {
 
 	CHECK_EXIT;
 }
-
-
-
-
-	
-

@@ -46,18 +46,33 @@ filter:  $(filternames_thrift_o) multisearch_naive.o filter.o
 
 ###########################################  Unit tests
 
+
+### NAIVE
+
 multisearch_naive.o:   multisearch.h
 
 u-multisearch_naive:  multisearch_naive.o u-multisearch_naive.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
+
+### MULTIFAST
+
+multifast.o:    CXXFLAGS += -I $(multifast)/ahocorasick/
+u-multifast.o:    CXXFLAGS += -I $(multifast)/ahocorasick/
+u-multifast:    LDFLAGS  += -L $(multifast)/ahocorasick/build/
+u-multifast:    LDLIBS   += -l ahocorasick
+
+multifast.o:   multisearch.h
+
+u-multifast:  u-multifast.o  
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
+	
+###
+
 test:     u-multisearch_naive
 	./u-multisearch_naive
 
-
 ###########################################  Benchmarks
-
-power_saving_off = su -c 'cpufreq-set -c0 -g performance'; su -c 'cpufreq-set -c1 -g performance'
 
 run1:	  filter
 	$(power_saving_off)
@@ -70,4 +85,4 @@ run2:	filter
 
 ##########################################
 clean:
-	$(RM)  *.o filter u-multisearch_naive  $(output) $(filtername_thrift_cpp) 
+	$(RM)  *.o filter u-multisearch_naive  $(output) $(filtername_thrift_cpp)

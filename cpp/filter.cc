@@ -320,7 +320,7 @@ int main(int argc, char **argv) {
 	auto diff = chrono::high_resolution_clock ::now() - start;
 	double sec = chrono::duration_cast<chrono::seconds>(diff).count();
 	clog << "run time: "         << sec << " sec" << endl;
-	clog << "stream items/sec: " << double(stream_items_count)/sec<< " sec" << endl;
-	clog << "MB/sec: "           << double(total_content_size)/1000000/sec<< " sec" << endl;
+	clog << "stream items/sec: " << double(stream_items_count)/sec << " sec" << endl;
+	clog << "MB/sec: "           << double(total_content_size)/1000000/sec << " sec" << endl;
 }
 
