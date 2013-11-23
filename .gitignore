@@ -33,3 +33,5 @@ cpp/filternames_constants.h
 cpp/filternames_types.cpp
 cpp/filternames_types.h
 cpp/u-multifast
+*.gch
+

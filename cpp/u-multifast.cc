@@ -3,37 +3,9 @@
 #include "ahocorasick.h"
 #include <string.h>
 
-#include <vector>
-	using std::vector;
+//#include "ro/ro.h"
+//#include "scc/simple.h"
 
-#include <string>
-	using std::string;
-
-#include <iostream>
-	using std::cout;
-	using std::clog;
-	using std::endl;
-
-#include "ro/ro.h"
-#include "scc/simple.h"
-
-
-//////////////////////////////////////////////////////////////////////////////  NAMES IFACE
-
-typedef  const char*   	pos_t;
-
-struct  names_t {                            // pimpl idiom
-
-	       names_t    ();
-	      ~names_t    ();
-	void   post_ctor  ();
-	void   insert     (pos_t b, pos_t e);
-	void   search     (pos_t b, pos_t e, pos_t& match_b, pos_t& match_e);
-	void   print      ();
-
-	struct names_impl;
-	names_impl *impl;
-};
 
 //////////////////////////////////////////////////////////////////////////////  NAMES IMPL
 
@@ -141,8 +113,7 @@ int main () {
 
 	// construct names
 	names_t			names;    
-							//names.print();
-	//for(pos_t p:  names_str)  { names.insert(p, p+strlen(p));  __ "inserting: ", string(p,strlen(p));  }
+
 	for(string name:  names_str)  { names.insert(name.data(), name.data()+name.size());   }
 							clog << "------------------------------------------------  post init\n";
 	names.post_ctor();

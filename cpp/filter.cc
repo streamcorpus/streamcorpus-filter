@@ -113,7 +113,9 @@ int main(int argc, char **argv) {
       
 	for(auto& pr : filter_names.name_to_target_ids) {
 		if ((long)names.size() >= max_names) break;
-		names.push_back(&(pr.first));
+		auto p  = pr.first.data();
+		auto sz = pr.first.size();
+		names.insert(p , p+sz);
 	}
 
 
@@ -208,14 +210,16 @@ int main(int argc, char **argv) {
             		
 	    		//------------------------------------------------------------------   multisearch cycle
 
-			const name_t *matched_name = nullptr;
-			pos_t   pos = content.begin();
+			pos_t		b   	   	= content.data();
+			pos_t		e          	= b+content.size();
+			pos_t		p          	= b;
+			pos_t		match_b = nullptr, match_e = nullptr;
 
-			while ((pos = multisearch(pos, content.end(), names, matched_name)) != content.end()) {
+			while (names.search(p, e, match_b, match_e),  match_b) {
 			
 				// found
 				clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
-				clog << "   pos:" << pos-content.begin() << " \t" << *matched_name<< "\n";
+				clog << "   pos:" << match_b-b << " \t" << std::string(match_b, match_e) << "\n";
 			
 			
 				// mapping between canonical form of target and text actually found in document
@@ -238,9 +242,9 @@ int main(int argc, char **argv) {
 				sc::Offset offset;
 				offset.type = sc::OffsetType::CHARS;
 				
-				offset.first = pos - content.begin();
-				offset.length = matched_name->size();
-				offset.content_form = *matched_name;
+				offset.first = match_b - b;
+				offset.length = match_e - match_b;
+				offset.content_form = std::string(match_b, match_e);
 			
 				label.offsets[sc::OffsetType::CHARS] = offset;
 				label.__isset.offsets = true;
@@ -249,10 +253,10 @@ int main(int argc, char **argv) {
 				stream_item.body.labels[annotatorID].push_back(label);
 			
 				// Map of actual text mapped 
-				target_text_map[target.target_id].insert(*matched_name);
+				target_text_map[target.target_id].insert(std::string(match_b, match_e));
 
 				// advance pos to begining of unsearched content
-				pos += matched_name->size();
+				p = match_e;
 			}
 	    		
 	    		//------------------------------------------------------------------   sc processing
