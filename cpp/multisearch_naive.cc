@@ -1,6 +1,8 @@
 
 #include "multisearch.h"
 
+names
+
 pos_t  multisearch(pos_t b,  pos_t e,  const names_t& names,  const name_t*&  matched_name) {
 	for (auto pos = b;  pos <= e;  ++pos)  {
 		for(auto name : names)  {
