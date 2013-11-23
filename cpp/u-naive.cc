@@ -1,5 +1,5 @@
 #include "check.h"
-#include "multisearch.h"
+#include "search.h"
 
 #include <vector>
 	using std::vector;

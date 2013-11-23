@@ -43,7 +43,8 @@ filter:   LDFLAGS  += -L$(streamcorpus_src)
 filter:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
 
 filter.o $(filternames_thrift_o): $(filtername_thrift_cpp)
-filter:  $(filternames_thrift_o) multisearch_naive.o filter.o
+filter:  $(filternames_thrift_o) naive.o filter.o
+#	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
 ###########################################  Unit tests
@@ -51,9 +52,9 @@ filter:  $(filternames_thrift_o) multisearch_naive.o filter.o
 
 ### NAIVE
 
-multisearch_naive.o:  multisearch.h
-u-multisearch_naive:  multisearch_naive.o u-multisearch_naive.o
-
+naive.o:  search.h
+u-naive:  naive.o u-naive.o
+#	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
 ### MULTIFAST
@@ -62,12 +63,14 @@ multifast.o  u-multifast.o:   CXXFLAGS += -I $(multifast)/ahocorasick/
 u-multifast:                  LDFLAGS  += -L $(multifast)/ahocorasick/build/
 u-multifast:                  LDLIBS   += -l ahocorasick
 
-multifast.o:   multisearch.h
+multifast.o:   search.h
+u-multifast:  u-multifast.o
+#	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 ### RUN TESTS
 
-test:     u-multisearch_naive
-	./u-multisearch_naive
+test:     u-naive
+	./u-naive
 
 ###########################################  Benchmarks
 
@@ -82,4 +85,4 @@ run2:	filter
 
 ##########################################
 clean:
-	$(RM)  *.o filter u-multisearch_naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch
+	$(RM)  *.o filter u-naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch

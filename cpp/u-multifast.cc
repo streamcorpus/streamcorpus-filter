@@ -1,10 +1,21 @@
 #include <stdio.h>
 
 #include "ahocorasick.h"
+#include "search.h"
 #include <string.h>
 
-//#include "ro/ro.h"
-//#include "scc/simple.h"
+#include <cassert>
+
+#include <vector>
+	using std::vector;
+
+#include <string>
+	using std::string;
+
+#include <iostream>
+	using std::cout;
+	using std::clog;
+	using std::endl;
 
 
 //////////////////////////////////////////////////////////////////////////////  NAMES IMPL
@@ -14,9 +25,10 @@ struct  names_t::names_impl {
 
 	AC_AUTOMATA_t   *atm;
 
-	names_impl () { atm = ac_automata_init (); };
-	
-	void print() { ac_automata_display(atm,'s'); };
+	      names_impl () { atm = ac_automata_init (); };
+	     ~names_impl () { ac_automata_release (atm); }
+	void  post_ctor  () { ac_automata_finalize (atm); };
+	void  print      () { ac_automata_display(atm,'s'); };
 
 	void insert(pos_t b, pos_t e) {
 		AC_PATTERN_t    tmp_pattern;
@@ -25,13 +37,6 @@ struct  names_t::names_impl {
 									AC_STATUS_t rc = ac_automata_add (atm, &tmp_pattern);
 									assert(rc == ACERR_SUCCESS);
 	};
-
-		
-
-	void post_ctor() { ac_automata_finalize (atm); };
-
-	~names_impl() { ac_automata_release (atm); }
-
 	
 	void search  (pos_t b, pos_t e,  pos_t& match_b, pos_t& match_e) {
 
@@ -81,14 +86,11 @@ void   names_t::insert     (pos_t b, pos_t e)                                   
 void   names_t::search     (pos_t b, pos_t e,  pos_t& match_b, pos_t& match_e)  { impl->search(b, e, match_b, match_e); }
 void   names_t::print      () 						        { impl->print(); }
 
-//vector<const char*>		names_str  {"aaa","bbb"};
 
-//////////////////////////////////////////////////////////////////////////////////// DATA
 //////////////////////////////////////////////////////////////////////////////////////  MAIN
 int main () {
     
 	vector<string> names_str {
-	//vector<const AC_ALPHABET_t *> names_str {
 	    "simplicity",
 	    "the ease",
 	    "city",
@@ -109,15 +111,12 @@ int main () {
 	};
 
 
-	//vector<const char*>		names_str  {"aaa","bbb"};
 
 	// construct names
 	names_t			names;    
 
 	for(string name:  names_str)  { names.insert(name.data(), name.data()+name.size());   }
-							clog << "------------------------------------------------  post init\n";
 	names.post_ctor();
-							//names.print();  // <------------- seg fault
 			
 
 	////////////////////////////////////////////////
@@ -137,5 +136,4 @@ int main () {
                 p = match_e;
 				clog << p-b << ":" << std::string(match_b, match_e) << endl;
 	}
-	__ "results: ", results;
 }

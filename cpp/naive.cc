@@ -1,5 +1,5 @@
 
-#include "multisearch.h"
+#include "search.h"
 
 #include <string>
 #include <vector>
