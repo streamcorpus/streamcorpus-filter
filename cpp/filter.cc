@@ -83,10 +83,10 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	auto start = chrono::high_resolution_clock ::now();
 	
 	////////////////////////////////////////////////////////////// READ FILTERNAMES
 	
+	auto start = chrono::high_resolution_clock ::now();
 
 	int scf_fh = open(filtername_path.c_str(), O_RDONLY);
 
@@ -95,7 +95,6 @@ int main(int argc, char **argv) {
 						exit(1);
 					}
 
-	auto reading_names_start = chrono::high_resolution_clock ::now();
 
 	boost::shared_ptr<att::TFDTransport>		innerTransportScf(new att::TFDTransport(scf_fh));
 	boost::shared_ptr<att::TBufferedTransport>	transportScf(new att::TBufferedTransport(innerTransportScf));
@@ -120,9 +119,10 @@ int main(int argc, char **argv) {
 	transportScf->close();
 
 	{
-	auto diff = chrono::high_resolution_clock ::now() - reading_names_start;
+	auto diff = chrono::high_resolution_clock ::now() - start;
 	double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
-	clog << "names construction time: "         << sec/1e9 << " sec" << endl;
+	clog << "Names total/used: "             << filter_names.name_to_target_ids.size() << " / " << names.size() << endl;
+	clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
 	}
 
 					/*// check data
@@ -169,6 +169,7 @@ int main(int argc, char **argv) {
 	
 
 	///////////////////////////////////////////////////////////////////////////////  SC ITEMS READ CYCLE
+	start = chrono::high_resolution_clock ::now();
 	sc::StreamItem stream_item;
 	long total_content_size=0;
 	int  stream_items_count=0;
@@ -311,13 +312,13 @@ int main(int argc, char **argv) {
 
 		//----------------------------------------------------------------------------  items read cycle exit
 
-		catch (att::TTransportException e) {
+		//catch (att::TTransportException e) {
+		catch (...) {
 			// Vital to flush the buffered output or you will lose the last one
 			transportOutput->flush();
 			clog << "Total stream items processed: " << stream_items_count << endl;
 			clog << "Total matches: "                << matches << endl;
 			clog << "Total stream items written: "   << written << endl;
-			clog << "Names total/used: "             << filter_names.name_to_target_ids.size() << " / " << names.size() << endl;
 			if (negate) {
 				clog << " (Note, stream items written were non-matching ones)" << endl;
 			}
@@ -327,7 +328,7 @@ int main(int argc, char **argv) {
 
 	auto diff = chrono::high_resolution_clock ::now() - start;
 	double nsec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
-	clog << "run time: "         << nsec/1e9 << " sec" << endl;
+	clog << "search time: "      << nsec/1e9 << " sec" << endl;
 	clog << "stream items/sec: " << double(stream_items_count) / (nsec/1e9) << endl;
 	clog << "MB/sec: "           << double(total_content_size)/1000000 / (nsec/1e9) << endl;
 }

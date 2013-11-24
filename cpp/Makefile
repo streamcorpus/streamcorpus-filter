@@ -5,7 +5,7 @@ include config.mk
 ###########################################  Compiler flags
               MODE ?= DEBUG
       COMMON_FLAGS += -Wall -std=c++0x
-OPTIMIZATION_FLAGS += -O3 -DNDEBUG -march=native
+    OPTIMIZE_FLAGS += -O3 -DNDEBUG -march=native
        DEBUG_FLAGS += -O0 -DDEBUG  -ggdb3 -fdelete-null-pointer-checks  -fstack-protector -fbounds-check # -D_GLIBCXX_DEBUG 
           CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) 
 
@@ -45,7 +45,7 @@ $(filtername_thrift_cpp): filternames.thrift
 %-filter:   LDFLAGS  += -L$(STREAMCORPUS)
 %-filter:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
 
-filter.o $(filternames_thrift_o): $(filtername_thrift_cpp)
+filter.o $(filternames_thrift_o): filternames_types.h
 
 naive-filter:   filter.o $(filternames_thrift_o) naive.o
 multifast-filter:      filter.o $(filternames_thrift_o) multifast.o
@@ -83,9 +83,8 @@ I	?= 20	# max items
 
 run:	$(LINK)-filter
 	$(POWER_SAVING_OFF)
-	#./$(LINK)-filter -f $(filtername) < $(corpus) > $(output)
 	$(CORPUS) | ./$(LINK)-filter -N $(N) -f $(NAMES) > $(OUTPUT)
 
 ##########################################
 clean:
-	$(RM)  *.o filter u-naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch
+	$(RM)  *.o filter *-filter u-naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch

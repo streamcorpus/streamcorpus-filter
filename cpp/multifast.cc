@@ -2,12 +2,11 @@
 #include "ahocorasick.h"
 #include "search.h"
 
-#ifdef DEBUG
-	#include <iostream>
-		using std::cout;
-		using std::clog;
-		using std::endl;
-#endif
+#include <iostream>
+	using std::cout;
+	using std::clog;
+	using std::cerr;
+	using std::endl;
 
 #include <cassert>
 
@@ -27,11 +26,23 @@ struct  names_t::names_impl {
 	size_t  size       () { return sz; };
 
 	void insert(pos_t b, pos_t e) {
+
+		if (e-b >= AC_PATTRN_MAX_LENGTH) {
+			cerr << "\twarning: name of length " << (e-b) << " skipped\n";
+			return;
+		}
+
 		AC_PATTERN_t    tmp_pattern;
 		tmp_pattern.astring  = b;
 		tmp_pattern.length   = e-b;
 		AC_STATUS_t rc = ac_automata_add (atm, &tmp_pattern);
-		assert(rc == ACERR_SUCCESS);
+		if (rc != ACERR_SUCCESS) {
+			cerr << "multifast error: ac_automata_add() exited"
+				"\n\twith return code: " << rc <<
+				"\n\tfor string of size: " << e-b <<
+				"\n\tfor string: (" << std::string(b,e) <<  ")\n";
+			exit(1);
+		};
 		++sz;
 	};
 	
