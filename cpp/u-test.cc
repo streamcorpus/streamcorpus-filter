@@ -12,15 +12,22 @@
 	using std::clog;
 	using std::endl;
 
+
+#ifdef LVV
+#include <ro/ro.h>
+#include <scc/simple.h>
+#endif
+
 using namespace std;
 
-							//#include "ro/ro.h"
-							//#include "scc/simple.h"
 
 int main() {
+
+	/////////////////////////////////////////////////  NAMES
 	vector<string>		names_str  {"aaa","bbb"};
 	names_t			names;  
 	for(string &n:  names_str)  names.insert(n.data(), n.data()+n.size());
+	names.post_ctor();
 
 	{ ////////////////////////////////////////////////  FIND AAA, BBB
 	string		content         = "aaa bbb aaa z";
@@ -38,8 +45,10 @@ int main() {
 
 						// compare result with expected values
 	CHECK_ARE_EQUAL (results.size(),  3);
-	//CHECK_ARE_EQUAL (results, (vector<long>{0, 4, 8}));
 	CHECK (results == (vector<long>{0, 4, 8}));
+	#ifdef LVV
+	CHECK_ARE_EQUAL (results, (vector<long>{0, 4, 8}));
+	#endif
 	}
 
 	{ ////////////////////////////////////////////////  NOT FOUND

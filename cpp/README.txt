@@ -1,4 +1,4 @@
-This is directory for multisearch benchmarking.
+This is directory for streamcorpus filter benchmarking.
 
 Before running test, copy "example_config.mk" to "config.mk" and change config
 variables  to actual pathes that you have on your system.
@@ -8,8 +8,7 @@ streamcorpus library (libstreamcorpus.a).
 
 Current make targets:
 
-	run1 -- run benchmark on corpus bundled with streamcorpus repo
-      	run2 -- run benchmark on trec-kba-2013-rated-chunks-indexed
+	run  -- run benchmark on corpus bundled with streamcorpus repo
        	test -- unit test
 	clean 
 

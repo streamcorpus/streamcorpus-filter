@@ -39,7 +39,7 @@ filternames_thrift_o = \
 $(filtername_thrift_cpp): filternames.thrift
 	thrift  --out . --gen cpp  filternames.thrift
 
-########################################### build filter
+########################################### BUILD FILTER
 
 %-filter:   CXXFLAGS += -I$(STREAMCORPUS)
 %-filter:   LDFLAGS  += -L$(STREAMCORPUS)
@@ -50,13 +50,14 @@ filter.o $(filternames_thrift_o): filternames_types.h
 naive-filter:   filter.o $(filternames_thrift_o) naive.o
 multifast-filter:      filter.o $(filternames_thrift_o) multifast.o
 
-###########################################  Unit tests
+
+###########################################  UNIT TESTS
 
 
 ### NAIVE
 
-naive.o:  search.h
-u-naive:  naive.o u-naive.o
+u-naive:   	u-test.o  naive.o
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
 ### MULTIFAST
@@ -65,20 +66,24 @@ multifast.o:                  CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
 %multifast multifast-%:       LDFLAGS  += -L $(MULTIFAST)/ahocorasick/build/
 %multifast multifast-%:       LDLIBS   += -l ahocorasick
 
-multifast.o:   search.h
-u-multifast:  u-multifast.o  multifast.o
+u-multifast:	u-test.o  multifast.o
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
-### RUN TESTS
+### TEST
 
-test:     u-naive
+test.o:  search.h
+
+test:     u-naive u-multifast 
 	./u-naive
+	./u-multifast
+
 
 ###########################################  Benchmarks
 
 LINK    ?= naive
-N	?= 10000	# max names
-I	?= 20	# max items
+N	?= 10000   # max names
+I	?= 20	   # max items
 
 
 run:	$(LINK)-filter
