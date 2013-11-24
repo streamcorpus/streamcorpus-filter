@@ -28,6 +28,7 @@ cpp/u-multisearch_naive
 cpp/build
 cpp/filter
 cpp/ac-filter
+cpp/multifast-filter
 cpp/naive-filter
 cpp/config.mk
 cpp/filternames_constants.cpp

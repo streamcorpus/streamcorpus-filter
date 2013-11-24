@@ -83,7 +83,6 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	clog << "Starting program" <<endl;
 	auto start = chrono::high_resolution_clock ::now();
 	
 	////////////////////////////////////////////////////////////// READ FILTERNAMES
@@ -118,6 +117,7 @@ int main(int argc, char **argv) {
 		names.insert(p , p+sz);
 	}
 	names.post_ctor();
+	transportScf->close();
 
 	{
 	auto diff = chrono::high_resolution_clock ::now() - reading_names_start;
@@ -174,7 +174,9 @@ int main(int argc, char **argv) {
 	int  stream_items_count=0;
 	int  matches=0;
 	int  written=0;
+	#ifdef DEBUG
 	clog << "Reading stream item content from : " << text_source << endl;
+	#endif
 	
 	while (true) {
 		try {

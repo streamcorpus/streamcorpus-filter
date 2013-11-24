@@ -41,14 +41,14 @@ $(filtername_thrift_cpp): filternames.thrift
 
 ########################################### build filter
 
-%-filter:   CXXFLAGS += -I$(streamcorpus_src)
-%-filter:   LDFLAGS  += -L$(streamcorpus_src)
+%-filter:   CXXFLAGS += -I$(STREAMCORPUS)
+%-filter:   LDFLAGS  += -L$(STREAMCORPUS)
 %-filter:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
 
 filter.o $(filternames_thrift_o): $(filtername_thrift_cpp)
 
 naive-filter:   filter.o $(filternames_thrift_o) naive.o
-ac-filter:      filter.o $(filternames_thrift_o) multifast.o
+multifast-filter:      filter.o $(filternames_thrift_o) multifast.o
 
 ###########################################  Unit tests
 
@@ -61,9 +61,9 @@ u-naive:  naive.o u-naive.o
 
 ### MULTIFAST
 
-multifast.o:                  CXXFLAGS += -I $(multifast)/ahocorasick/
-%multifast ac-%:              LDFLAGS  += -L $(multifast)/ahocorasick/build/
-%multifast ac-%:              LDLIBS   += -l ahocorasick
+multifast.o:                  CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
+%multifast multifast-%:       LDFLAGS  += -L $(MULTIFAST)/ahocorasick/build/
+%multifast multifast-%:       LDLIBS   += -l ahocorasick
 
 multifast.o:   search.h
 u-multifast:  u-multifast.o  multifast.o
@@ -76,16 +76,15 @@ test:     u-naive
 
 ###########################################  Benchmarks
 
-LINK ?=naive
+LINK    ?= naive
+N	?= 10000	# max names
+I	?= 20	# max items
 
-run1:	  $(LINK)-filter
-	$(power_saving_off)
-	./$(LINK)-filter -f $(filtername) < $(corpus) > $(output)
 
-run2:	$(LINK)-filter
-	$(power_saving_off)
-	find $(trec_corpus) -type f |head -n 20 |  xargs cat | ./$(LINK)-filter --max-items 20 -f $(filtername) > $(output)
-
+run:	$(LINK)-filter
+	$(POWER_SAVING_OFF)
+	#./$(LINK)-filter -f $(filtername) < $(corpus) > $(output)
+	$(CORPUS) | ./$(LINK)-filter -N $(N) -f $(NAMES) > $(OUTPUT)
 
 ##########################################
 clean:
