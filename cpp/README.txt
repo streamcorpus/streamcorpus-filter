@@ -1,22 +1,21 @@
-This is directory for streamcorpus filter benchmarking.
+streamcorpus filter
+===================
 
-Before running test, copy "example_config.mk" to "config.mk" and change config
-variables  to actual pathes that you have on your system.
+Before running test, copy "example_config.mk" to "config.mk" and change there config
+variables to actual pathes (to data and libraries) that you have on your system.
 
-Directory with streamcorpus repo should have generated thrift files for cpp and 
-streamcorpus library (libstreamcorpus.a).
+Targets
+-------
 
 Current make targets:
 
-	run  -- run benchmark on corpus bundled with streamcorpus repo
-       	test -- unit test
+       	test -- run all unit tests
+	run  -- run benchmark 
 	clean 
 
-Optionally you can set compile mode with make's MODE variable. Possible
-values: DEBUG (default), OPTIMIZATION.
-For example to compile filter with debug compilation:
 
-	make MODE=DEBUG filter
+Unit tests
+----------
 
 Units testing framework is just one include file "check.h".
 Until recently this "framework" had 3 LOC. Please look into the
@@ -24,6 +23,20 @@ source, it still under 50 LOC, if you want to know how it works.  To test
 something, just use CHECK macro:
 
 	CHECK(result==expected_value);
+
+
+Runing filter benchmark
+-----------------------
+
+Obviously you need streamcorpus data and names file.
+Set all variables in config.mk
+
+To run test use:
+
+	make MODE=OPTIMIZE LINK=multifast N=500 I=20 run
+
+
+
 
 
 
