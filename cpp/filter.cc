@@ -117,12 +117,12 @@ int main(int argc, char **argv) {
 		auto sz = pr.first.size();
 		names.insert(p , p+sz);
 	}
-
+	names.post_ctor();
 
 	{
 	auto diff = chrono::high_resolution_clock ::now() - reading_names_start;
-	double sec = chrono::duration_cast<chrono::seconds>(diff).count();
-	clog << "names read time: "         << sec << " sec" << endl;
+	double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
+	clog << "names construction time: "         << sec/1e9 << " sec" << endl;
 	}
 
 					/*// check data
@@ -213,13 +213,15 @@ int main(int argc, char **argv) {
 			pos_t		b   	   	= content.data();
 			pos_t		e          	= b+content.size();
 			pos_t		p          	= b;
-			pos_t		match_b = nullptr, match_e = nullptr;
+			pos_t		match_b, match_e;
 
 			while (names.search(p, e, match_b, match_e),  match_b) {
 			
 				// found
+				#ifdef xxxDEBUG
 				clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
 				clog << "   pos:" << match_b-b << " \t" << std::string(match_b, match_e) << "\n";
+				#endif
 			
 			
 				// mapping between canonical form of target and text actually found in document
@@ -322,9 +324,9 @@ int main(int argc, char **argv) {
 	}
 
 	auto diff = chrono::high_resolution_clock ::now() - start;
-	double sec = chrono::duration_cast<chrono::seconds>(diff).count();
-	clog << "run time: "         << sec << " sec" << endl;
-	clog << "stream items/sec: " << double(stream_items_count)/sec << " sec" << endl;
-	clog << "MB/sec: "           << double(total_content_size)/1000000/sec << " sec" << endl;
+	double nsec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
+	clog << "run time: "         << nsec/1e9 << " sec" << endl;
+	clog << "stream items/sec: " << double(stream_items_count) / (nsec/1e9) << endl;
+	clog << "MB/sec: "           << double(total_content_size)/1000000 / (nsec/1e9) << endl;
 }
 
