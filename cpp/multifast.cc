@@ -28,7 +28,9 @@ struct  names_t::names_impl {
 	void insert(pos_t b, pos_t e) {
 
 		if (e-b >= AC_PATTRN_MAX_LENGTH) {
+	       		#ifdef DEBUG 
 			cerr << "\twarning: name of length " << (e-b) << " skipped\n";
+			#endif
 			return;
 		}
 

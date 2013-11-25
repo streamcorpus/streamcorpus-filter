@@ -44,6 +44,8 @@
 	namespace chrono = std::chrono;
 #include <limits>
 	using std::numeric_limits;
+#include <fstream>
+
 
 // BOOST
 #include <boost/program_options.hpp>
@@ -105,8 +107,15 @@ int main(int argc, char **argv) {
 	filter_names.read(protocolScf.get());
 	names_t  names;
 
-	filter_names.name_to_target_ids["John Smith"] = vector<string>();
+							//filter_names.name_to_target_ids["John Smith"] = vector<string>();
+
 	unordered_map<string, set<string>> target_text_map;
+
+	
+	#ifdef LVV
+		// a hack to release some memory
+		filter_names.target_id_to_names = std::map<std::string, std::vector<std::string>>();
+	#endif
 
       
 	for(auto& pr : filter_names.name_to_target_ids) {
@@ -326,10 +335,24 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	/////////////////////////////////////////////////////////////////////////// TIMING RESULTS
+	
+	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
-	double nsec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
-	clog << "search time: "      << nsec/1e9 << " sec" << endl;
-	clog << "stream items/sec: " << double(stream_items_count) / (nsec/1e9) << endl;
-	clog << "MB/sec: "           << double(total_content_size)/1000000 / (nsec/1e9) << endl;
+	double nsec                 = chrono::duration_cast<chrono::nanoseconds>(diff).count();
+	double search_time          = nsec/1e9;
+	double stream_items_per_sec = double(stream_items_count) / (nsec/1e9);
+	double mb_per_sec           = double(total_content_size)/1000000 / (nsec/1e9);
+
+	clog << "search time: "      << search_time << " sec" << endl;
+	clog << "stream items/sec: " << stream_items_per_sec << endl;
+	clog << "MB/sec: "           << mb_per_sec << endl;
+
+	std::ofstream  log("log",std::ofstream::app);       
+	if (!log)  { cerr << "log file open failed\n" ; exit(2); }
+
+	log << stream_items_count << '\t' <<  mb_per_sec << '\t' << stream_items_per_sec << endl;
+	}
+
 }
 

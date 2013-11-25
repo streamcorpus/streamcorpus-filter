@@ -1,8 +1,20 @@
 
-# set pathes in config.mk
+# read config file 
 include config.mk
 
-###########################################  Compiler flags
+###########################################  HELP
+
+help:
+	@echo "Please select specific target:"
+	@echo "	  run -- run benchmark
+	@echo "	  test -- unit test"
+	@echo "	  run2 -- run benchmark on trec-kba-2013-rated-chunks-indexed"
+	@echo "	  clean -- remove computer generated files"
+
+.PHONY: help run test clean 
+
+###########################################  COMPILER FLAGS
+
               MODE ?= DEBUG
       COMMON_FLAGS += -Wall -std=c++0x
     OPTIMIZE_FLAGS += -O3 -DNDEBUG -march=native
@@ -15,16 +27,12 @@ include config.mk
 %:  %.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 	
-###########################################
+# additianal debug fascilities, if available
+ifneq ($(wildcard /home/lvv/p),)
+CXXFLAGS += -DLVV -I /home/lvv/p
+endif
 
-help:
-	@echo "Please select specific target:"
-	@echo "	  run1 -- run benchmark on corpus bundled with streamcorpus repo"
-	@echo "	  run2 -- run benchmark on trec-kba-2013-rated-chunks-indexed"
-	@echo "	  test -- unit test"
-	@echo "	  clean -- remove computer generated files"
-
-########################################### thrift: flternames 
+########################################### THRIFT: FLTERNAMES 
 
 filtername_thrift_cpp= \
 	filternames_constants.cpp  \
@@ -47,20 +55,20 @@ $(filtername_thrift_cpp): filternames.thrift
 
 filter.o $(filternames_thrift_o): filternames_types.h
 
-naive-filter:   filter.o $(filternames_thrift_o) naive.o
-multifast-filter:      filter.o $(filternames_thrift_o) multifast.o
+naive-filter:          filter.o  $(filternames_thrift_o)  naive.o
+multifast-filter:      filter.o  $(filternames_thrift_o)  multifast.o
 
 
 ###########################################  UNIT TESTS
 
 
-### NAIVE
+##  naive  ----------
 
 u-naive:   	u-test.o  naive.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
-### MULTIFAST
+##  multifast  -----
 
 multifast.o:                  CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
 %multifast multifast-%:       LDFLAGS  += -L $(MULTIFAST)/ahocorasick/build/
@@ -70,7 +78,7 @@ u-multifast:	u-test.o  multifast.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
-### TEST
+##  test  ----------
 
 test.o:  search.h
 
@@ -86,8 +94,8 @@ N	?= 10000   # max names
 I	?= 20	   # max items
 
 
-run:	$(LINK)-filter
-	$(POWER_SAVING_OFF)
+run: $(LINK)-filter
+	@$(POWER_SAVING_OFF)
 	$(CORPUS) | ./$(LINK)-filter -N $(N) -f $(NAMES) > $(OUTPUT)
 
 ##########################################
