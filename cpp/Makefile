@@ -48,11 +48,12 @@ $(filtername_thrift_cpp): filternames.thrift
 
 ########################################### BUILD FILTER
 
-%-filter:   CXXFLAGS += -I$(STREAMCORPUS)
-%-filter:   LDFLAGS  += -L$(STREAMCORPUS)
+%-filter:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+%-filter:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
 %-filter:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
 
-filter.o $(filternames_thrift_o): filternames_types.h $(LIBS)
+$(filternames_thrift_o): filternames_types.h
+filter.o: filternames_types.h $(LIBS) $(STREAMCORPUS)
 
 naive-filter:          filter.o  $(filternames_thrift_o)  naive.o
 multifast-filter:      filter.o  $(filternames_thrift_o)  multifast.o
@@ -88,9 +89,9 @@ test:    $(LIBS) u-naive u-multifast
 
 ##########################################  DATA & EXTERNAL LIBS
 
-EXTERNAL_DEPS = $(DATA)  $(LIBS)
 DATA          = $(NAMES)  $(CORPUS)
 LIBS          = $(MULTIFAST)  $(STREAMCORPUS)
+EXTERNAL_DEPS = $(DATA)  $(LIBS)
 
 
 $(NAMES):

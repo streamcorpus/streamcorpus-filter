@@ -5,19 +5,16 @@ NAMES_URL  := http://aws-publicdatasets.s3.amazonaws.com/trec/kba/wlc/mention-du
 MULTIFAST_REPO    := svn://svn.code.sf.net/p/multifast/code/trunk
 STREAMCORPUS_REPO := http://github.com/trec-kba/streamcorpus
 
-# benchmarking parameters
-LINK    ?= multifast    # search-library
-N	?= 1000   	# max names to use
-I	?= 20     	# max items to use
+# benchmarking parameters:  search-library;  max names to use;  max items to use
+LINK    ?= multifast
+N	?= 1000
+I	?= 20
 
-
-# Path to streamcorpus source repo. It should have built libstreamcorpus.a
+# Path to streamcorpus source repo.
 STREAMCORPUS = streamcorpus
-#STREAMCORPUS = ../../sc-lvv-v0.3.0-dev/cpp
 
-# Path to multifast source repo.  It should have built libahocorasick.a
+# Path to multifast source repo.
 MULTIFAST = multifast
-#MULTIFAST = ../../multifast-code/
 
 # Path to names file
 NAMES = data/names.scf
@@ -25,8 +22,6 @@ NAMES = data/names.scf
 # Command which sends items text to stdout
 CORPUS := data/corpus/
 CAT_CORPUS_TO_STDOUT ?= find $(CORPUS) -type f | head -n $(I) | xargs cat
-#CAT_CORPUS_TO_STDOUT ?= find ../../corpus/trec-kba-2013-rated-chunks-indexed -type f | head -n $(I) | xargs cat
-#CORPUS          = /tr/diffeo/sc-lvv-v0.3.0-dev/test-data/john-smith-tagged-by-lingpipe-0-v0_2_0.sc
 
 # Path to saved output from filter
 OUTPUT = /tmp/filtered.sc
