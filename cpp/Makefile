@@ -52,7 +52,7 @@ $(filtername_thrift_cpp): filternames.thrift
 %-filter:   LDFLAGS  += -L$(STREAMCORPUS)
 %-filter:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
 
-filter.o $(filternames_thrift_o): filternames_types.h
+filter.o $(filternames_thrift_o): filternames_types.h $(LIBS)
 
 naive-filter:          filter.o  $(filternames_thrift_o)  naive.o
 multifast-filter:      filter.o  $(filternames_thrift_o)  multifast.o
@@ -69,11 +69,12 @@ u-naive:   	u-test.o  naive.o
 
 ##  multifast  -----
 
+multifast.o:                  $(MULTIFAST) $(LIBS)
 multifast.o:                  CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
 %multifast multifast-%:       LDFLAGS  += -L $(MULTIFAST)/ahocorasick/build/
 %multifast multifast-%:       LDLIBS   += -l ahocorasick
 
-u-multifast:	u-test.o  multifast.o
+u-multifast:   u-test.o  multifast.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
@@ -81,7 +82,7 @@ u-multifast:	u-test.o  multifast.o
 
 test.o:  search.h
 
-test:    u-naive u-multifast
+test:    $(LIBS) u-naive u-multifast
 	./u-naive
 	./u-multifast
 
@@ -90,8 +91,6 @@ test:    u-naive u-multifast
 EXTERNAL_DEPS = $(DATA)  $(LIBS)
 DATA          = $(NAMES)  $(CORPUS)
 LIBS          = $(MULTIFAST)  $(STREAMCORPUS)
-
-search.h: $(EXTERNAL_DEPS)
 
 
 $(NAMES):
@@ -113,12 +112,8 @@ $(STREAMCORPUS) :
 
 ###########################################  Benchmarks
 
-LINK    ?= multifast
-N	?= 1000   # max names
-I	?= 20     # max items
 
-
-run:  $(LINK)-filter
+run:  $(LINK)-filter  | $(DATA)
 	@$(POWER_SAVING_OFF)
 	$(CAT_CORPUS_TO_STDOUT) | ./$(LINK)-filter -N $(N) -f $(NAMES) > $(OUTPUT)
 

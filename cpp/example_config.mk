@@ -5,7 +5,13 @@ NAMES_URL  := http://aws-publicdatasets.s3.amazonaws.com/trec/kba/wlc/mention-du
 MULTIFAST_REPO    := svn://svn.code.sf.net/p/multifast/code/trunk
 STREAMCORPUS_REPO := http://github.com/trec-kba/streamcorpus
 
-# Path to streamcorpus source repo. It should have built libstreamcorpus.a 
+# benchmarking parameters
+LINK    ?= multifast    # search-library
+N	?= 1000   	# max names to use
+I	?= 20     	# max items to use
+
+
+# Path to streamcorpus source repo. It should have built libstreamcorpus.a
 STREAMCORPUS = streamcorpus
 #STREAMCORPUS = ../../sc-lvv-v0.3.0-dev/cpp
 
@@ -26,5 +32,5 @@ CAT_CORPUS_TO_STDOUT ?= find $(CORPUS) -type f | head -n $(I) | xargs cat
 OUTPUT = /tmp/filtered.sc
 
 # optional: command which turns off powersaving (needed for benchmarking)
-POWER_SAVING_OFF = su -c 'cpufreq-set -c0 -g performance'; su -c 'cpufreq-set -c1 -g performance'
+#POWER_SAVING_OFF = su -c 'cpufreq-set -c0 -g performance'; su -c 'cpufreq-set -c1 -g performance'
 
