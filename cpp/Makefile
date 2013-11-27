@@ -6,7 +6,7 @@ include config.mk
 
 help:
 	@echo "Please select specific target:"
-	@echo "	  run -- run benchmark
+	@echo "	  run -- run benchmark"
 	@echo "	  test -- unit test"
 	@echo "	  run2 -- run benchmark on trec-kba-2013-rated-chunks-indexed"
 	@echo "	  clean -- remove computer generated files"
@@ -15,7 +15,7 @@ help:
 
 ###########################################  COMPILER FLAGS
 
-              MODE ?= DEBUG
+              MODE ?= OPTIMIZE
       COMMON_FLAGS += -Wall -std=c++0x
     OPTIMIZE_FLAGS += -O3 -DNDEBUG -march=native
        DEBUG_FLAGS += -O0 -DDEBUG  -ggdb3 -fdelete-null-pointer-checks  -fstack-protector -fbounds-check # -D_GLIBCXX_DEBUG 
@@ -86,18 +86,31 @@ test:     u-naive u-multifast
 	./u-naive
 	./u-multifast
 
+##########################################  DATA
+
+DATA = $(NAMES)  $(CORPUS)
+
+$(NAMES):
+	mkdir -p data/
+	wget -O - $(NAMES_URL) | zcat > $(NAMES)
+
+$(CORPUS):
+	mkdir -p data/corpus/
+	wget -O - $(CORPUS_URL) | tar -xJ -C $(CORPUS) --strip-components=1 -f -
 
 ###########################################  Benchmarks
 
-LINK    ?= naive
-N	?= 10000   # max names
-I	?= 20	   # max items
+LINK    ?= multifast
+N	?= 1000   # max names
+I	?= 20     # max items
 
 
-run: $(LINK)-filter
+run: $(LINK)-filter $(DATA)
 	@$(POWER_SAVING_OFF)
-	$(CORPUS) | ./$(LINK)-filter -N $(N) -f $(NAMES) > $(OUTPUT)
+	$(CAT_CORPUS_TO_STDOUT) | ./$(LINK)-filter -N $(N) -f $(NAMES) > $(OUTPUT)
 
 ##########################################
 clean:
 	$(RM)  *.o filter *-filter u-naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch
+
+

@@ -1,4 +1,7 @@
 
+CORPUS_URL := http://aws-publicdatasets.s3.amazonaws.com/trec/kba/trec-kba-2013-rated-chunks-indexed.tar.xz
+NAMES_URL :=http://aws-publicdatasets.s3.amazonaws.com/trec/kba/wlc/mention-dump.scf.gz
+
 # Path to streamcorpus source repo. It should have built libstreamcorpus.a 
 STREAMCORPUS = ../../sc-lvv-v0.3.0-dev/cpp
 
@@ -6,10 +9,12 @@ STREAMCORPUS = ../../sc-lvv-v0.3.0-dev/cpp
 MULTIFAST = ../../multifast-code/
 
 # Path to names file
-NAMES = ../../names/mention-dump.scf
+NAMES = data/names.scf
 
 # Command which sends items text to stdout
-CORPUS ?= find ../../corpus/trec-kba-2013-rated-chunks-indexed -type f | head -n $(I) | xargs cat
+CORPUS := data/corpus/
+CAT_CORPUS_TO_STDOUT ?= find $(CORPUS) -type f | head -n $(I) | xargs cat
+#CAT_CORPUS_TO_STDOUT ?= find ../../corpus/trec-kba-2013-rated-chunks-indexed -type f | head -n $(I) | xargs cat
 #CORPUS          = /tr/diffeo/sc-lvv-v0.3.0-dev/test-data/john-smith-tagged-by-lingpipe-0-v0_2_0.sc
 
 # Path to saved output from filter

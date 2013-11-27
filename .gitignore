@@ -38,4 +38,5 @@ cpp/filternames_types.h
 cpp/u-multifast
 cpp/u-naive
 *.gch
+cpp/data
 
