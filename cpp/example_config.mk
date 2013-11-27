@@ -1,12 +1,17 @@
 
 CORPUS_URL := http://aws-publicdatasets.s3.amazonaws.com/trec/kba/trec-kba-2013-rated-chunks-indexed.tar.xz
-NAMES_URL :=http://aws-publicdatasets.s3.amazonaws.com/trec/kba/wlc/mention-dump.scf.gz
+NAMES_URL  := http://aws-publicdatasets.s3.amazonaws.com/trec/kba/wlc/mention-dump.scf.gz
+
+MULTIFAST_REPO    := svn://svn.code.sf.net/p/multifast/code/trunk
+STREAMCORPUS_REPO := http://github.com/trec-kba/streamcorpus
 
 # Path to streamcorpus source repo. It should have built libstreamcorpus.a 
-STREAMCORPUS = ../../sc-lvv-v0.3.0-dev/cpp
+STREAMCORPUS = streamcorpus
+#STREAMCORPUS = ../../sc-lvv-v0.3.0-dev/cpp
 
 # Path to multifast source repo.  It should have built libahocorasick.a
-MULTIFAST = ../../multifast-code/
+MULTIFAST = multifast
+#MULTIFAST = ../../multifast-code/
 
 # Path to names file
 NAMES = data/names.scf

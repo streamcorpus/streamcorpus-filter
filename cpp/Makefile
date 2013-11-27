@@ -8,7 +8,6 @@ help:
 	@echo "Please select specific target:"
 	@echo "	  run -- run benchmark"
 	@echo "	  test -- unit test"
-	@echo "	  run2 -- run benchmark on trec-kba-2013-rated-chunks-indexed"
 	@echo "	  clean -- remove computer generated files"
 
 .PHONY: help run test clean 
@@ -82,21 +81,35 @@ u-multifast:	u-test.o  multifast.o
 
 test.o:  search.h
 
-test:     u-naive u-multifast 
+test:    u-naive u-multifast
 	./u-naive
 	./u-multifast
 
-##########################################  DATA
+##########################################  DATA & EXTERNAL LIBS
 
-DATA = $(NAMES)  $(CORPUS)
+EXTERNAL_DEPS = $(DATA)  $(LIBS)
+DATA          = $(NAMES)  $(CORPUS)
+LIBS          = $(MULTIFAST)  $(STREAMCORPUS)
+
+search.h: $(EXTERNAL_DEPS)
+
 
 $(NAMES):
 	mkdir -p data/
 	wget -O - $(NAMES_URL) | zcat > $(NAMES)
 
 $(CORPUS):
-	mkdir -p data/corpus/
+	mkdir -p $(CORPUS)
 	wget -O - $(CORPUS_URL) | tar -xJ -C $(CORPUS) --strip-components=1 -f -
+
+$(MULTIFAST) :
+	svn checkout $(MULTIFAST_REPO) multifast
+	CXXFLAGS+=-O3 make -C $(MULTIFAST)/ahocorasick/
+	ls                    $(MULTIFAST)/ahocorasick/build/libahocorasick.a
+	
+$(STREAMCORPUS) :
+	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
+	cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  CXXFLAGS+=-O3 make;  ls libstreamcorpus.a
 
 ###########################################  Benchmarks
 
@@ -105,12 +118,10 @@ N	?= 1000   # max names
 I	?= 20     # max items
 
 
-run: $(LINK)-filter $(DATA)
+run:  $(LINK)-filter
 	@$(POWER_SAVING_OFF)
 	$(CAT_CORPUS_TO_STDOUT) | ./$(LINK)-filter -N $(N) -f $(NAMES) > $(OUTPUT)
 
 ##########################################
 clean:
 	$(RM)  *.o filter *-filter u-naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch
-
-

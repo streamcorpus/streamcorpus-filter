@@ -39,4 +39,6 @@ cpp/u-multifast
 cpp/u-naive
 *.gch
 cpp/data
+cpp/streamcorpus
+cpp/multifast
 
