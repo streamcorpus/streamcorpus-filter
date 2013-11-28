@@ -45,6 +45,10 @@ Phase II:  basic use of MultiFast
 5. Get an estimate of baseline throughput perf of MultiFast using the
 TREC KBA 2013 Rated Documents Corpus.
 
+This mention-dump file contains all of the mention-->target_id strings
+observed in the WLC corpus:
+http://aws-publicdatasets.s3.amazonaws.com/trec/kba/wlc/mention-dump.scf.gz
+
 
 Phase III:  assess character class issues
 -----------------------------------------

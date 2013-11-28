@@ -4,6 +4,7 @@ import json
 from streamcorpus import StreamItem, ContentItem
 from streamcorpus_filter import Filter
 from streamcorpus_filter.ttypes import FilterNames
+from streamcorpus_filter.convert import convert_utf8
 
 
 def test_streamcorpus_filter_save_load():
@@ -16,13 +17,7 @@ def test_streamcorpus_filter_save_load():
     path_to_thrift_message = os.path.join(os.path.dirname(__file__), '../../../../data/test-name-strings.scf')
     
     unicode_target_id_to_names = json.load(open(path_to_json))
-    ## convert all the strings to utf-8, as is required for all thrift strings
-    utf8_target_id_to_names = dict()
-    for target_id in unicode_target_id_to_names:
-        utf8_target_id_to_names[target_id] = list()
-        for name in unicode_target_id_to_names[target_id]:
-            utf8_target_id_to_names[target_id].append(name.encode('utf8'))
-
+    utf8_target_id_to_names = convert_utf8(unicode_target_id_to_names)
     filter_names = FilterNames(target_id_to_names=utf8_target_id_to_names)
 
     filter = Filter()
