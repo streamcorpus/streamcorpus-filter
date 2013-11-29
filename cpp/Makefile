@@ -1,71 +1,123 @@
-###########################################  CONFIG
-filtername="test-name-strings.scf"
-corpus=/tr/sc-lvv-v0.3.0-dev/test-data/john-smith-tagged-by-lingpipe-0-v0_2_0.sc
-trec_corpus=/tr/KBA/trec-kba-2013-rated-chunks-indexed
-output=/tmp/filtered.sc
-streamcorpus_src=/tr/sc-lvv-v0.3.0-dev/cpp
 
+# read config file 
+include config.mk
 
-###########################################  Compile flags
-COMMON   = -Wall -std=c++0x
-O_FLAGS  +=  -O3  -march=native -DNDEBUG  
-D_FLAGS  +=  -O0  -DDEBUG -ggdb3 -D_GLIBCXX_DEBUG -fdelete-null-pointer-checks  -fstack-protector -fbounds-check
-CXXFLAGS += $(COMMON) $(D_FLAGS) 
-
-
-####################################################
-
-thrift_generated= \
-	build/filternames_constants.cpp  \
-	build/filternames_constants.h  \
-	build/filternames_types.cpp  \
-	build/filternames_types.h 
+###########################################  HELP
 
 help:
-	@echo "Please select spesific target."
-	@echo "	run1 -- run benchmark on corpus bundled with streamcorpus repo"
-	@echo "	run2 -- run benchmark on trec-kba-2013-rated-chunks-indexed"
-	@echo "	test -- unit test"
+	@echo "Please select specific target:"
+	@echo "	  run -- run benchmark"
+	@echo "	  test -- unit test"
+	@echo "	  clean -- remove computer generated files"
 
-###########################################  benchmarks
+.PHONY: help run test clean 
 
-run1:	filter
-	./filter -f $(filtername) < $(corpus) > $(output)
+###########################################  COMPILER FLAGS
 
-run2:	filter
-	find $(trec_corpus) -type f | head -n 20 | xargs cat | ./filter -f $(filtername) > $(output)
+              MODE ?= OPTIMIZE
+      COMMON_FLAGS += -Wall -std=c++0x
+    OPTIMIZE_FLAGS += -O3 -DNDEBUG -march=native
+       DEBUG_FLAGS += -O0 -DDEBUG  -ggdb3 -fdelete-null-pointer-checks  -fstack-protector -fbounds-check # -D_GLIBCXX_DEBUG 
+          CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) 
 
-###########################################  build
+%-filter:  filter.o
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
-CMakeLists.txt:   $(thrift_generated)
+%:  %.o
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
+	
+# additianal debug fascilities, if available
+ifneq ($(wildcard /home/lvv/p),)
+CXXFLAGS += -DLVV -I /home/lvv/p
+endif
 
-build/Makefile:	Makefile CMakeLists.txt   $(thrift_generated) 
-	cd build && cmake -DSC=$(streamcorpus_src)  -DCMAKE_BUILD_TYPE=Debug .. 
+########################################### THRIFT: FLTERNAMES 
 
-build/filter: filter.cc build/Makefile  $(thrift_generated)   Makefile
-	rm -f filter
-	cd build && make filter
+filtername_thrift_cpp= \
+	filternames_constants.cpp  \
+	filternames_constants.h  \
+	filternames_types.cpp  \
+	filternames_types.h 
 
-filter:	build/filter
-	ln -s build/filter filter
+filternames_thrift_o = \
+	filternames_constants.o \
+	filternames_types.o
 
-$(thrift_generated): filternames.thrift
-	mkdir -p build 
-	thrift  --out build --gen cpp  filternames.thrift
+$(filtername_thrift_cpp): filternames.thrift
+	thrift  --out . --gen cpp  filternames.thrift
 
-###########################################  Unit tests                   
+########################################### BUILD FILTER
+
+%-filter:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+%-filter:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
+%-filter:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
+
+$(filternames_thrift_o): filternames_types.h
+filter.o: filternames_types.h $(LIBS) $(STREAMCORPUS)
+
+naive-filter:          filter.o  $(filternames_thrift_o)  naive.o
+multifast-filter:      filter.o  $(filternames_thrift_o)  multifast.o
 
 
-multisearch_naive.o:   multisearch.h multisearch_naive.cc 
-
-u-multisearch_naive:  multisearch_naive.o u-multisearch_naive.o  
-	$(CXX) $(CXXFLAGS) -o $@ $?
-
-test:     u-multisearch_naive
-	./u-multisearch_naive
+###########################################  UNIT TESTS
 
 
-#############################################
+##  naive  ----------
+
+u-naive:   	u-test.o  naive.o
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
+
+
+##  multifast  -----
+
+multifast.o:                  $(MULTIFAST) $(LIBS)
+multifast.o:                  CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
+%multifast multifast-%:       LDFLAGS  += -L $(MULTIFAST)/ahocorasick/build/
+%multifast multifast-%:       LDLIBS   += -l ahocorasick
+
+u-multifast:   u-test.o  multifast.o
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
+
+
+##  test  ----------
+
+test.o:  search.h
+
+test:    $(LIBS) u-naive u-multifast
+	./u-naive
+	./u-multifast
+
+##########################################  DATA & EXTERNAL LIBS
+
+DATA          = $(NAMES)  $(CORPUS)
+LIBS          = $(MULTIFAST)  $(STREAMCORPUS)
+EXTERNAL_DEPS = $(DATA)  $(LIBS)
+
+
+$(NAMES):
+	mkdir -p data/
+	wget -O - $(NAMES_URL) | zcat > $(NAMES)
+
+$(CORPUS):
+	mkdir -p $(CORPUS)
+	wget -O - $(CORPUS_URL) | tar -xJ -C $(CORPUS) --strip-components=1 -f -
+
+$(MULTIFAST) :
+	svn checkout $(MULTIFAST_REPO) multifast
+	CXXFLAGS+=-O3 make -C $(MULTIFAST)/ahocorasick/
+	ls                    $(MULTIFAST)/ahocorasick/build/libahocorasick.a
+	
+$(STREAMCORPUS) :
+	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
+	cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  CXXFLAGS+=-O3 make;  ls libstreamcorpus.a
+
+###########################################  Benchmarks
+
+
+run:  $(LINK)-filter  | $(DATA)
+	@$(POWER_SAVING_OFF)
+	$(CAT_CORPUS_TO_STDOUT) | ./$(LINK)-filter -N $(N) -f $(NAMES) > $(OUTPUT)
+
+##########################################
 clean:
-	rm -rf build/
-	rm -f filter u-multisearch_naive *.o
+	$(RM)  *.o filter *-filter u-naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch

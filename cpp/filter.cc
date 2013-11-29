@@ -1,73 +1,78 @@
-#include "multisearch.h"
+#include "search.h"
 
-#include <inttypes.h>
+// LIBC
 #include <fcntl.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <netinet/in.h>
-#include <iostream>
-#include <cstdio>
 #include <time.h>
-#include <regex>
-#include <boost/unordered_map.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/regex.hpp>
-#include <fstream>
-#include <chrono>
+
+// THRIFT
+#include <thrift/protocol/TBinaryProtocol.h>
+#include <thrift/protocol/TDenseProtocol.h>
+#include <thrift/protocol/TJSONProtocol.h>
+#include <thrift/transport/TTransportUtils.h>
+#include <thrift/transport/TFDTransport.h>
+#include <thrift/transport/TFileTransport.h>
+	namespace atp = apache::thrift::protocol;
+	namespace att = apache::thrift::transport;
 
 // THRIFT -- STREAMCORUPS
 #include "streamcorpus_types.h"
 #include "streamcorpus_constants.h"
-using namespace streamcorpus;
+	namespace sc = streamcorpus;
 
 // THRIFT -- FILTERNAMES
 #include "filternames_types.h"
 #include "filternames_constants.h"
-//using namespace filternames;
-namespace fn = filternames;
+	namespace fn = filternames;
 
-#include <protocol/TBinaryProtocol.h>
-#include <protocol/TDenseProtocol.h>
-#include <protocol/TJSONProtocol.h>
-#include <transport/TTransportUtils.h>
-#include <transport/TFDTransport.h>
-#include <transport/TFileTransport.h>
 
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
+// STD
+#include <iostream>
+	using std::clog;
+	using std::cerr;
+	using std::cout;
+	using std::endl;
+
+#include <set>
+	using std::set;
+#include <unordered_map>
+	using std::unordered_map;
+#include <string>
+	using std::string;
+#include <vector>
+	using std::vector;
+#include <chrono>
+	namespace chrono = std::chrono;
+#include <limits>
+	using std::numeric_limits;
+#include <fstream>
+
+
+// BOOST
 #include <boost/program_options.hpp>
+	namespace po = boost::program_options;
 
-using namespace std;
-using namespace boost;
-using namespace boost::filesystem;
-using namespace apache::thrift;
-using namespace apache::thrift::protocol;
-using namespace apache::thrift::transport;
-
-namespace po = boost::program_options;
 
 
 int main(int argc, char **argv) {
 	
-	clog << "Starting program" <<endl;
-	auto start = chrono::high_resolution_clock ::now();
+	///////////////////////////////////////////////////////////////////////////////  OPTIONS
 
-	
-	string text_source("clean_visible");
-	string filtername_path;
-	
-	bool negate(false);
-	
-	// Supported options.
+	// options
+	string		text_source	="clean_visible";
+	string		filtername_path;
+	bool		negate		= false;
+	long		max_names	= numeric_limits<long>::max();
+	long		max_items	= numeric_limits<long>::max();
+
 	po::options_description desc("Allowed options");
 
 	desc.add_options()
 		("help,h", "help message")
 		("text_source,t", po::value<string>(&text_source), "text source in stream item")
 		("negate,n", po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
-		("filtername,f", po::value<string>(&filtername_path), "filtername file")
+		("filternames,f", po::value<string>(&filtername_path), "filternames file")
+		("max-names,N", po::value<long>(&max_names), "maximum number of names to use")
+		("max-items,I", po::value<long>(&max_items), "maximum number of items to process")
 	;
 	
 	// Parse command line options
@@ -79,24 +84,12 @@ int main(int argc, char **argv) {
 		cout << desc << "\n";
 		return 1;
 	}
-	
-	// Create annotator object
-	Annotator annotator;
-	AnnotatorID annotatorID;
-	annotatorID = "example-matcher-v0.1";
-	
-	// Annotator identifier
-	annotator.annotator_id = "example-matcher-v0.1";
-	
-	// Time this annotator was started
-	StreamTime streamtime;
-	time_t seconds;
-	seconds = time(NULL);
-	streamtime.epoch_ticks = seconds;
-	streamtime.zulu_timestamp = ctime(&seconds);
-	annotator.__set_annotation_time(streamtime);
 
-	// read FilterNames
+	
+	////////////////////////////////////////////////////////////// READ FILTERNAMES
+	
+	auto start = chrono::high_resolution_clock ::now();
+
 	int scf_fh = open(filtername_path.c_str(), O_RDONLY);
 
 					if(scf_fh==-1)  {
@@ -104,13 +97,42 @@ int main(int argc, char **argv) {
 						exit(1);
 					}
 
-	boost::shared_ptr<TFDTransport> innerTransportScf(new TFDTransport(scf_fh));
-	boost::shared_ptr<TBufferedTransport> transportScf(new TBufferedTransport(innerTransportScf));
-	boost::shared_ptr<TBinaryProtocol> protocolScf(new TBinaryProtocol(transportScf));
+
+	boost::shared_ptr<att::TFDTransport>		innerTransportScf(new att::TFDTransport(scf_fh));
+	boost::shared_ptr<att::TBufferedTransport>	transportScf(new att::TBufferedTransport(innerTransportScf));
+	boost::shared_ptr<atp::TBinaryProtocol>		protocolScf(new atp::TBinaryProtocol(transportScf));
 	transportScf->open();
 	
 	fn::FilterNames filter_names;
 	filter_names.read(protocolScf.get());
+	names_t  names;
+
+							//filter_names.name_to_target_ids["John Smith"] = vector<string>();
+
+	unordered_map<string, set<string>> target_text_map;
+
+	
+	#ifdef LVV
+		// a hack to release some memory
+		filter_names.target_id_to_names = std::map<std::string, std::vector<std::string>>();
+	#endif
+
+      
+	for(auto& pr : filter_names.name_to_target_ids) {
+		if ((long)names.size() >= max_names) break;
+		auto p  = pr.first.data();
+		auto sz = pr.first.size();
+		names.insert(p , p+sz);
+	}
+	names.post_ctor();
+	transportScf->close();
+
+	{
+	auto diff = chrono::high_resolution_clock ::now() - start;
+	double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
+	clog << "Names total/used: "             << filter_names.name_to_target_ids.size() << " / " << names.size() << endl;
+	clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
+	}
 
 					/*// check data
 					for(const auto& pr : filter_names.target_id_to_names) {
@@ -119,35 +141,58 @@ int main(int argc, char **argv) {
 							clog << '\t' << name << endl;
 						}
 					}*/
+	/////////////////////////////////////////////////////////////////////////////////// SC Objects
+	
+
+	// Create annotator object
+	sc::Annotator annotator;
+	sc::AnnotatorID annotatorID;
+	annotatorID = "example-matcher-v0.1";
+	
+	// Annotator identifier
+	annotator.annotator_id = "example-matcher-v0.1";
+	
+	// Time this annotator was started
+	sc::StreamTime streamtime;
+	time_t seconds;
+	seconds = time(NULL);
+	streamtime.epoch_ticks = seconds;
+	streamtime.zulu_timestamp = ctime(&seconds);
+	annotator.__set_annotation_time(streamtime);
+
 	
 	// Setup thrift reading and writing from stdin and stdout
 	int input_fd = 0;
 	int output_fd = 1;
 	
 	// input
-	boost::shared_ptr<TFDTransport> innerTransportInput(new TFDTransport(input_fd));
-	boost::shared_ptr<TBufferedTransport> transportInput(new TBufferedTransport(innerTransportInput));
-	boost::shared_ptr<TBinaryProtocol> protocolInput(new TBinaryProtocol(transportInput));
+	boost::shared_ptr<att::TFDTransport>	        innerTransportInput(new att::TFDTransport(input_fd));
+	boost::shared_ptr<att::TBufferedTransport>	transportInput(new att::TBufferedTransport(innerTransportInput));
+	boost::shared_ptr<atp::TBinaryProtocol>		protocolInput(new atp::TBinaryProtocol(transportInput));
 	transportInput->open();
 
 	// output 
-	boost::shared_ptr<TFDTransport> transportOutput(new TFDTransport(output_fd));
-	boost::shared_ptr<TBinaryProtocol> protocolOutput(new TBinaryProtocol(transportOutput));
+	boost::shared_ptr<att::TFDTransport>		transportOutput(new att::TFDTransport(output_fd));
+	boost::shared_ptr<atp::TBinaryProtocol>		protocolOutput(new atp::TBinaryProtocol(transportOutput));
 	transportOutput->open();
 	
-	// Read and process all stream items
-	StreamItem stream_item;
+
+	///////////////////////////////////////////////////////////////////////////////  SC ITEMS READ CYCLE
+	start = chrono::high_resolution_clock ::now();
+	sc::StreamItem stream_item;
 	long total_content_size=0;
-	int stream_items_count=0;
-	int matches=0;
-	int written=0;
+	int  stream_items_count=0;
+	int  matches=0;
+	int  written=0;
+	#ifdef DEBUG
 	clog << "Reading stream item content from : " << text_source << endl;
+	#endif
 	
 	while (true) {
 		try {
-	    		// Read stream_item from stdin
+ 	    		//------------------------------------------------------------------   get item content
 	    		stream_item.read(protocolInput.get());
-	    		
+		       
 	    		string content;
 	    		string actual_text_source = text_source;
 	    		if (text_source == "clean_visible") {
@@ -175,24 +220,20 @@ int main(int argc, char **argv) {
 			total_content_size += content.size();
 	    		
             		
-	    		filter_names.name_to_target_ids["John Smith"] = vector<string>();
-	    		unordered_map<string, set<string> > target_text_map;
+	    		//------------------------------------------------------------------   multisearch cycle
 
-			names_t  names;
-            	      
-	    		for(auto& pr : filter_names.name_to_target_ids)
-	    			names.push_back(&(pr.first));
+			pos_t		b   	   	= content.data();
+			pos_t		e          	= b+content.size();
+			pos_t		p          	= b;
+			pos_t		match_b, match_e;
 
-	    		// SEARCH CYCLE ########################################################################
-
-			const name_t *matched_name = nullptr;
-			pos_t   pos = content.begin();
-
-			while ((pos = multisearch(pos, content.end(), names, matched_name)) != content.end()) {
+			while (names.search(p, e, match_b, match_e),  match_b) {
 			
 				// found
+				#ifdef xxxDEBUG
 				clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
-				clog << "   pos:" << pos-content.begin() << " \t" << *matched_name<< "\n";
+				clog << "   pos:" << match_b-b << " \t" << std::string(match_b, match_e) << "\n";
+				#endif
 			
 			
 				// mapping between canonical form of target and text actually found in document
@@ -205,43 +246,45 @@ int main(int argc, char **argv) {
 				// Add the target identified to the label.  Note this 
 				// should be identical to what is in the rating 
 				// data we add later.
-				Target target;
+				sc::Target target;
 				target.target_id = "1";
 			
-				Label label;
+				sc::Label label;
 				label.target = target;
 			
 				// Add the actual offsets 
-				Offset offset;
-				offset.type = OffsetType::CHARS;
+				sc::Offset offset;
+				offset.type = sc::OffsetType::CHARS;
 				
-				offset.first = pos - content.begin();
-				offset.length = matched_name->size();
-				offset.content_form = *matched_name;
+				offset.first = match_b - b;
+				offset.length = match_e - match_b;
+				offset.content_form = std::string(match_b, match_e);
 			
-				label.offsets[OffsetType::CHARS] = offset;
+				label.offsets[sc::OffsetType::CHARS] = offset;
 				label.__isset.offsets = true;
 			
 				// Add new label to the list of labels.
 				stream_item.body.labels[annotatorID].push_back(label);
 			
 				// Map of actual text mapped 
-				target_text_map[target.target_id].insert(*matched_name);
+				target_text_map[target.target_id].insert(std::string(match_b, match_e));
 
 				// advance pos to begining of unsearched content
-				pos += matched_name->size();
+				p = match_e;
 			}
 	    		
+	    		//------------------------------------------------------------------   sc processing
+			
 	    		// Add the rating object for each target that matched in a document
 	    		for ( auto match=target_text_map.begin(); match!=target_text_map.end(); ++match) {
 	    			// Construct new rating
-	    			Rating rating;
+	    			sc::Rating rating;
 	    			
 	    			// Flag that it contained a mention
 	    			rating.__set_contains_mention(true);
 	    			
 	    			// Construct a target object for each match
-	    			Target target;
+	    			sc::Target target;
 	    			target.target_id = match->first;
 	    			rating.target = target;
 	    			
@@ -273,14 +316,18 @@ int main(int argc, char **argv) {
 	    		
 	    		// Increment count of stream items processed
 	    		stream_items_count++;
+			if (stream_items_count >= max_items)  throw att::TTransportException();
 	    	}
 
-		catch (TTransportException e) {
+		//----------------------------------------------------------------------------  items read cycle exit
+
+		//catch (att::TTransportException e) {
+		catch (...) {
 			// Vital to flush the buffered output or you will lose the last one
 			transportOutput->flush();
 			clog << "Total stream items processed: " << stream_items_count << endl;
-			clog << "Total matches : " << matches << endl;
-			clog << "Total stream items written         : " << written << endl;
+			clog << "Total matches: "                << matches << endl;
+			clog << "Total stream items written: "   << written << endl;
 			if (negate) {
 				clog << " (Note, stream items written were non-matching ones)" << endl;
 			}
@@ -288,10 +335,24 @@ int main(int argc, char **argv) {
 		}
 	}
 
+	/////////////////////////////////////////////////////////////////////////// TIMING RESULTS
+	
+	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
-	int sec = chrono::duration_cast<chrono::seconds>(diff).count();
-	clog << "run time: " << sec << " sec" << endl;
-	clog << "stream items/sec: " << double(stream_items_count)/sec<< " sec" << endl;
-	clog << "MB/sec: " << double(total_content_size)/1000000/sec<< " sec" << endl;
+	double nsec                 = chrono::duration_cast<chrono::nanoseconds>(diff).count();
+	double search_time          = nsec/1e9;
+	double stream_items_per_sec = double(stream_items_count) / (nsec/1e9);
+	double mb_per_sec           = double(total_content_size)/1000000 / (nsec/1e9);
+
+	clog << "search time: "      << search_time << " sec" << endl;
+	clog << "stream items/sec: " << stream_items_per_sec << endl;
+	clog << "MB/sec: "           << mb_per_sec << endl;
+
+	std::ofstream  log("log",std::ofstream::app);       
+	if (!log)  { cerr << "log file open failed\n" ; exit(2); }
+
+	log << stream_items_count << '\t' <<  mb_per_sec << '\t' << stream_items_per_sec << endl;
+	}
+
 }
 

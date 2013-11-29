@@ -1,29 +1,37 @@
-This is slightly modified annotated_example.cpp with boost:regex replaced with
-naive multisearch and added timer code. 
+streamcorpus filter
+===================
 
-Before running test, change pathes at Makefile config section.
+Before running test, copy "example_config.mk" to "config.mk" and change  config
+variables if necessary.  Editing config.mk is now optional, as all data and
+libraries are auto-downloaded and auto-build starting with P2. 
 
-Directory with streamcorpus repo should have generated thrift files for cpp and 
-streamcorpus library (libstreamcorpus.a).
+Targets
+-------
 
-There are currently 3 targets:
+Current make targets:
 
-	run1 -- run benchmark on corpus bundled with streamcorpus repo
-      	run2 -- run benchmark on trec-kba-2013-rated-chunks-indexed
-       	test -- unit test
+       	test -- run all unit tests
+	run  -- run benchmark 
+	clean 
 
-Any of above will call cmake generator, run 2nd make, build executables, and run tests.
-Benchmark metrics are recored on standard output. 
 
-Units testing framework - just a simple include file "check.h" with couple
-macros.   Until recently this "framework" had 3 LOC. Please look into the
+Running filter benchmark
+-----------------------
+
+Streamcorpus and names file will be downloaded automatically (as dependency). 
+To run test use with 500 names used and to precess 20 items:
+
+	make N=500 I=20 run
+
+N and I parameters are optional.   They have default values set in config.mk.
+
+
+Unit tests
+----------
+
+Units testing framework is just one include file "check.h".
+Until recently this "framework" had 3 LOC. Please look into the
 source, it still under 50 LOC, if you want to know how it works.  To test
-something, we just use CHECK macro:
+something, use CHECK macro:
 
 	CHECK(result==expected_value);
-
-
-
-
-
-
