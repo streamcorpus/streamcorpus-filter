@@ -12,13 +12,35 @@ help:
 
 .PHONY: help run test clean 
 
+################################################################################  BUILD ID
+_cc := $(CXX)-$(shell $(CXX) -v 2>&1 | sed  -n 's/^.*ersion *\(4[^ ]*\) .*/\1/p')
+#_date := $(shell date +'%y%m%d_%H%M%S')
+_rev :=$(shell test -d .git && git rev-parse HEAD|sed -n 's/^\(........\).*/\1/p' )
+#_cpu=$(shell uname -m -p  |sed 's/Intel(R)//;s/(TM)//;s/@//;s/CPU//;s/ \+/-/g')
+_cpu :=$(shell sed -n '/^model name/!d; s/.*: //; s/(tm) Processor//; s/Intel(R)//; s/(TM)//; s/@//; s/^ //; s/ \+/-/g;p;q' /proc/cpuinfo )
+_cores := $(shell awk '/^processor/{cores=$$3+1}; END{print cores}' /proc/cpuinfo)
+_mhz := $(shell awk '/^cpu MHz/{mhz=$$4}; END{print mhz}' /proc/cpuinfo |sed 's/\.[0-9]\+//')
+ID = $(shell echo "$(_rev)-$(_cc)-$(MODE)-$(_cpu)-x$(_cores)@$(_mhz)" | tr -d ' ')
+
 ###########################################  COMPILER FLAGS
 
               MODE ?= OPTIMIZE
-      COMMON_FLAGS += -Wall -std=c++0x
+      COMMON_FLAGS += -Wall -std=c++0x -DID='"$(LINK)-$(ID)"'
     OPTIMIZE_FLAGS += -O3 -DNDEBUG -march=native
-       DEBUG_FLAGS += -O0 -DDEBUG  -ggdb3 -fdelete-null-pointer-checks  -fstack-protector -fbounds-check # -D_GLIBCXX_DEBUG 
-          CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) 
+       DEBUG_FLAGS += -O0 -DDEBUG  -ggdb3 -fstack-protector  # -D_GLIBCXX_DEBUG 
+
+ifneq ($(CXX),cl++)
+ifneq ($(CXX),clang++)
+	DEBUG_FLAGS += -fdelete-null-pointer-checks  -fbounds-check
+endif
+endif
+
+u-%:   MODE = DEBUG
+u-%:   MODE = DEBUG
+u-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
+t-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
+
+          CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS)
 
 %-filter:  filter.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
@@ -46,25 +68,18 @@ filternames_thrift_o = \
 $(filtername_thrift_cpp): filternames.thrift
 	thrift  --out . --gen cpp  filternames.thrift
 
-########################################### BUILD FILTER
-
-%-filter:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-%-filter:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
-%-filter:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
-
-$(filternames_thrift_o): filternames_types.h
-filter.o: filternames_types.h $(LIBS) $(STREAMCORPUS)
-
-naive-filter:          filter.o  $(filternames_thrift_o)  naive.o
-multifast-filter:      filter.o  $(filternames_thrift_o)  multifast.o
-
-
 ###########################################  UNIT TESTS
 
 
 ##  naive  ----------
 
 u-naive:   	u-test.o  naive.o
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
+
+
+##  vsearch  ----------
+
+u-vsearch:  u-test.o  vsearch.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
@@ -83,9 +98,10 @@ u-multifast:   u-test.o  multifast.o
 
 test.o:  search.h
 
-test:    $(LIBS) u-naive u-multifast
+test:    $(LIBS) u-naive u-multifast u-vsearch
 	./u-naive
 	./u-multifast
+	./u-vsearch
 
 ##########################################  DATA & EXTERNAL LIBS
 
@@ -111,8 +127,22 @@ $(STREAMCORPUS) :
 	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
 	cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  CXXFLAGS+=-O3 make;  ls libstreamcorpus.a
 
+########################################### BUILD FILTER
+
+%-filter:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+%-filter:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
+%-filter:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
+
+$(filternames_thrift_o): filternames_types.h
+filter.o: filternames_types.h $(LIBS) $(STREAMCORPUS)
+
+naive-filter:          filter.o  $(filternames_thrift_o)  naive.o
+multifast-filter:      filter.o  $(filternames_thrift_o)  multifast.o
+vsearch-filter:        filter.o  $(filternames_thrift_o)  vsearch.o
+
 ###########################################  Benchmarks
 
+RUN:	MODE := OPTIMIZE
 
 run:  $(LINK)-filter  | $(DATA)
 	@$(POWER_SAVING_OFF)
@@ -120,4 +150,13 @@ run:  $(LINK)-filter  | $(DATA)
 
 ##########################################
 clean:
-	$(RM)  *.o filter *-filter u-naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch
+	$(RM)  *.o filter *-filter u-naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch [tu]-search
+
+#########################################  
+
+vsearch.o : search.h
+
+t-vsearch: t-vsearch.o vsearch.o
+t-vsearch: t-vsearch.o vsearch.o
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
+	

@@ -86,6 +86,17 @@ int main(int argc, char **argv) {
 	}
 
 	
+	////////////////////////////////////////////////////////////// BUILD/CPU ID
+	cerr << ID << endl; 
+
+	#ifdef DEBUG 
+		cerr << "MODE=DEBUG\n";
+	#endif
+
+	#ifdef OPTIMIZE 
+		cerr << "MODE=OPTIMIZE\n";
+	#endif
+
 	////////////////////////////////////////////////////////////// READ FILTERNAMES
 	
 	auto start = chrono::high_resolution_clock ::now();
@@ -117,12 +128,20 @@ int main(int argc, char **argv) {
 		filter_names.target_id_to_names = std::map<std::string, std::vector<std::string>>();
 	#endif
 
+	size_t name_min=9999999999;
+	size_t name_max=0;
+	size_t total_name_length=0;
       
 	for(auto& pr : filter_names.name_to_target_ids) {
 		if ((long)names.size() >= max_names) break;
 		auto p  = pr.first.data();
 		auto sz = pr.first.size();
 		names.insert(p , p+sz);
+
+		// names stats
+		name_min = std::min(name_min,sz);
+		name_max = std::max(name_max,sz);
+		total_name_length += sz;
 	}
 	names.post_ctor();
 	transportScf->close();
@@ -130,7 +149,13 @@ int main(int argc, char **argv) {
 	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
 	double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
-	clog << "Names total/used: "             << filter_names.name_to_target_ids.size() << " / " << names.size() << endl;
+	clog << "Names in file: "  << filter_names.name_to_target_ids.size()
+	     << ";  used: "        << names.size()
+	     << ";  min: "         << name_min
+	     << ";  max: "         << name_max
+	     << ";  avg: "         << double(total_name_length)/names.size()
+	     << endl;
+
 	clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
 	}
 
@@ -227,10 +252,12 @@ int main(int argc, char **argv) {
 			pos_t		p          	= b;
 			pos_t		match_b, match_e;
 
-			while (names.search(p, e, match_b, match_e),  match_b) {
+			names.set_content(p, e);
+
+			while (names.find_next(match_b, match_e)) {
 			
 				// found
-				#ifdef xxxDEBUG
+				#ifdef DEBUG
 				clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
 				clog << "   pos:" << match_b-b << " \t" << std::string(match_b, match_e) << "\n";
 				#endif
