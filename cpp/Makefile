@@ -25,9 +25,10 @@ ID = $(shell echo "$(_rev)-$(_cc)-$(MODE)-$(_cpu)-x$(_cores)@$(_mhz)" | tr -d ' 
 ###########################################  COMPILER FLAGS
 
               MODE ?= OPTIMIZE
-      COMMON_FLAGS += -Wall -std=c++0x -DID='"$(LINK)-$(ID)"'
+      COMMON_FLAGS += -Wall -DID='"$(LINK)-$(ID)"'
     OPTIMIZE_FLAGS += -O3 -DNDEBUG -march=native
        DEBUG_FLAGS += -O0 -DDEBUG  -ggdb3 -fstack-protector  # -D_GLIBCXX_DEBUG 
+     PROFILE_FLAGS += -O0 -ggdb3 -pg  -fno-omit-frame-pointer -fno-inline-functions -fno-inline-functions-called-once -fno-optimize-sibling-calls -fno-default-inline -fno-inline
 
 ifneq ($(CXX),cl++)
 ifneq ($(CXX),clang++)
@@ -35,12 +36,13 @@ ifneq ($(CXX),clang++)
 endif
 endif
 
-u-%:   MODE = DEBUG
-u-%:   MODE = DEBUG
+u-%:           MODE = DEBUG
+u-%:           MODE = DEBUG
 u-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 t-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 
-          CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS)
+   export CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) -std=c++0x 
+   export   CFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS)
 
 %-filter:  filter.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
@@ -85,10 +87,11 @@ u-vsearch:  u-test.o  vsearch.o
 
 ##  multifast  -----
 
-multifast.o:                  $(MULTIFAST) $(LIBS)
+multifast.o:                  $(MULTIFAST)/ahocorasick/build/libahocorasick.a
 multifast.o:                  CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
 %multifast multifast-%:       LDFLAGS  += -L $(MULTIFAST)/ahocorasick/build/
 %multifast multifast-%:       LDLIBS   += -l ahocorasick
+
 
 u-multifast:   u-test.o  multifast.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
@@ -120,12 +123,16 @@ $(CORPUS):
 
 $(MULTIFAST) :
 	svn checkout $(MULTIFAST_REPO) multifast
-	CXXFLAGS+=-O3 make -C $(MULTIFAST)/ahocorasick/
-	ls                    $(MULTIFAST)/ahocorasick/build/libahocorasick.a
+
+$(MULTIFAST)/ahocorasick/build/libahocorasick.a : $(MULTIFAST)
+	make -BC $(MULTIFAST)/ahocorasick/
+	ls      $(MULTIFAST)/ahocorasick/build/libahocorasick.a
 	
-$(STREAMCORPUS) :
+$(STREAMCORPUS):
 	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
-	cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  CXXFLAGS+=-O3 make;  ls libstreamcorpus.a
+
+$(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
+	cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  make  MAKE_VERBOSE=1 -B;  ls libstreamcorpus.a
 
 ########################################### BUILD FILTER
 
@@ -134,7 +141,7 @@ $(STREAMCORPUS) :
 %-filter:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
 
 $(filternames_thrift_o): filternames_types.h
-filter.o: filternames_types.h $(LIBS) $(STREAMCORPUS)
+filter.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
 naive-filter:          filter.o  $(filternames_thrift_o)  naive.o
 multifast-filter:      filter.o  $(filternames_thrift_o)  multifast.o
@@ -142,15 +149,24 @@ vsearch-filter:        filter.o  $(filternames_thrift_o)  vsearch.o
 
 ###########################################  Benchmarks
 
-RUN:	MODE := OPTIMIZE
+#RUN:	MODE := OPTIMIZE
 
-run:  $(LINK)-filter  | $(DATA)
+run:  $(LINK)-filter | $(DATA)
 	@$(POWER_SAVING_OFF)
 	$(CAT_CORPUS_TO_STDOUT) | ./$(LINK)-filter -N $(N) -f $(NAMES) > $(OUTPUT)
 
-##########################################
+##########################################  MISC
 clean:
 	$(RM)  *.o filter *-filter u-naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch [tu]-search
+	$(RM)  gmon.out  *.prof  *.prof.png
+
+libclean:  clean
+	$(RM)  $(MULTIFAST)/ahocorasick/build/libahocorasick.a $(STREAMCORPUS)/cpp/libstreamcorpus.a 
+
+gprof:
+	gprof $(exe) > $(exe).gprof
+	cat $(exe).gprof  |  gprof2dot -s -n 0 -e 0 | dot -Tpng -o $(exe).gprof.png;
+	eog $(exe).gprof.png
 
 #########################################  
 
@@ -159,4 +175,3 @@ vsearch.o : search.h
 t-vsearch: t-vsearch.o vsearch.o
 t-vsearch: t-vsearch.o vsearch.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
-	

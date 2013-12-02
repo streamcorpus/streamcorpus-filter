@@ -97,6 +97,8 @@ int main(int argc, char **argv) {
 		cerr << "MODE=OPTIMIZE\n";
 	#endif
 
+	cerr << "   max-names: " << max_names << "   max-items: " << max_items << endl;
+
 	////////////////////////////////////////////////////////////// READ FILTERNAMES
 	
 	auto start = chrono::high_resolution_clock ::now();
