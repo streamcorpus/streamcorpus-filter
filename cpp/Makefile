@@ -115,11 +115,13 @@ EXTERNAL_DEPS = $(DATA)  $(LIBS)
 
 $(NAMES):
 	mkdir -p data/
-	wget -O - $(NAMES_URL) | zcat > $(NAMES)
+	wget -c -O - $(NAMES_URL) | zcat > $(NAMES)
 
 $(CORPUS):
-	mkdir -p $(CORPUS)
-	wget -O - $(CORPUS_URL) | tar -xJ -C $(CORPUS) --strip-components=1 -f -
+	mkdir -p data/
+	wget -c -O - $(CORPUS_URL) | tar -xJ -O -f - | lz4c > $(CORPUS)
+	#mkdir -p $(CORPUS)
+	#wget -O - $(CORPUS_URL) | tar -xJ -C $(CORPUS) --strip-components=1 -f -
 
 $(MULTIFAST) :
 	svn checkout $(MULTIFAST_REPO) multifast
@@ -132,7 +134,9 @@ $(STREAMCORPUS):
 	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
 
 $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
-	cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  make  MAKE_VERBOSE=1 -B;  ls libstreamcorpus.a
+	make -f $(PWD)/streamcorpus.mk  -C  $(STREAMCORPUS)/cpp/  libstreamcorpus.a
+	#cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  make  MAKE_VERBOSE=1 -B;  ls libstreamcorpus.a
+
 
 ########################################### BUILD FILTER
 
@@ -161,7 +165,9 @@ clean:
 	$(RM)  gmon.out  *.prof  *.prof.png
 
 libclean:  clean
-	$(RM)  $(MULTIFAST)/ahocorasick/build/libahocorasick.a $(STREAMCORPUS)/cpp/libstreamcorpus.a 
+	make -C $(STREAMCORPUS)/cpp/      clean
+	make -C $(MULTIFAST)/ahocorasick/ clean
+	#$(RM)  $(MULTIFAST)/ahocorasick/build/libahocorasick.a $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
 gprof:
 	gprof $(exe) > $(exe).gprof
