@@ -45,4 +45,6 @@ cpp/*-vsearch
 cpp/*.gprof*
 cpp/pro*
 cpp/log*
+cpp/mmap.h
+
 

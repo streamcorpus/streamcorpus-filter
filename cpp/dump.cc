@@ -1,4 +1,7 @@
+
 #include "search.h"
+#include "mmap.h"
+
 
 // LIBC
 #include <fcntl.h>
@@ -52,6 +55,14 @@
 	namespace po = boost::program_options;
 
 
+template<size_t N=4446930, size_t TOTAL=116942447, class T=char>
+struct names_data_t{
+	T data[TOTAL];
+	T* E[N];
+	const static size_t size=N;
+	const static size_t total_size=TOTAL;
+};
+
 
 int main(int argc, char **argv) {
 	
@@ -87,7 +98,7 @@ int main(int argc, char **argv) {
 
 	
 	////////////////////////////////////////////////////////////// BUILD/CPU ID
-	cerr << "filter  " << ID ; 
+	cerr << "dump  " << ID ; 
 
 	#ifdef DEBUG 
 		cerr << "   MODE=DEBUG";
@@ -105,7 +116,6 @@ int main(int argc, char **argv) {
 
 	////////////////////////////////////////////////////////////// READ FILTERNAMES
 	
-	auto start = chrono::high_resolution_clock ::now();
 
 	int scf_fh = open(filtername_path.c_str(), O_RDONLY);
 
@@ -122,7 +132,6 @@ int main(int argc, char **argv) {
 	
 	fn::FilterNames filter_names;
 	filter_names.read(protocolScf.get());
-	names_t  names;
 
 							//filter_names.name_to_target_ids["John Smith"] = vector<string>();
 
@@ -136,35 +145,37 @@ int main(int argc, char **argv) {
 
 	size_t name_min=9999999999;
 	size_t name_max=0;
-	size_t total_name_length=0;
+	size_t total_names_size=0;
+	
+	names_data_t<>*  names_data = new names_data_t<>();
+	char*  b = &((*names_data).data[0]);
+	char*  d = b;
+	size_t i = 0;
+
       
 	for(auto& pr : filter_names.name_to_target_ids) {
-		if ((long)names.size() >= max_names) break;
-		auto p  = pr.first.data();
+		auto s  = pr.first.data();
 		auto sz = pr.first.size();
-		names.insert(p , p+sz);
 
-		// names stats
-		name_min = std::min(name_min,sz);
-		name_max = std::max(name_max,sz);
-		total_name_length += sz;
+		if (i < names_data->size) {
+			std::copy(s, s+sz, d);
+			d += sz ;
+			(*names_data).E[i] = d;
+					assert((*names_data).E[i]  <=  b + names_data->total_size);
+		}
+		i++;
+		total_names_size += sz;
 	}
-	names.post_ctor();
 	transportScf->close();
 
-	{
-	auto diff = chrono::high_resolution_clock ::now() - start;
-	double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
+
 	clog << "Names: "  << filter_names.name_to_target_ids.size()
-	     << ";  used: "        << names.size()
+	     << ";  used: "        << names_data->size
 	     << ";  min: "         << name_min
 	     << ";  max: "         << name_max
-	     << ";  avg: "         << double(total_name_length)/names.size()
-	     << "; total length: " << total_name_length
+	     << ";  avg: "         << double(total_names_size)/names_data->size
+	     << ";  total names size: " << total_names_size
 	     << endl;
-
-	clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
-	}
 
 					/*// check data
 					for(const auto& pr : filter_names.target_id_to_names) {
@@ -173,29 +184,8 @@ int main(int argc, char **argv) {
 							clog << '\t' << name << endl;
 						}
 					}*/
-	/////////////////////////////////////////////////////////////////////////////////// SC Objects
-	
-
-	// Create annotator object
-	sc::Annotator annotator;
-	sc::AnnotatorID annotatorID;
-	annotatorID = "example-matcher-v0.1";
-	
-	// Annotator identifier
-	annotator.annotator_id = "example-matcher-v0.1";
-	
-	// Time this annotator was started
-	sc::StreamTime streamtime;
-	time_t seconds;
-	seconds = time(NULL);
-	streamtime.epoch_ticks = seconds;
-	streamtime.zulu_timestamp = ctime(&seconds);
-	annotator.__set_annotation_time(streamtime);
-
-	
 	// Setup thrift reading and writing from stdin and stdout
 	int input_fd = 0;
-	int output_fd = 1;
 	
 	// input
 	boost::shared_ptr<att::TFDTransport>	        innerTransportInput(new att::TFDTransport(input_fd));
@@ -203,23 +193,16 @@ int main(int argc, char **argv) {
 	boost::shared_ptr<atp::TBinaryProtocol>		protocolInput(new atp::TBinaryProtocol(transportInput));
 	transportInput->open();
 
-	// output 
-	boost::shared_ptr<att::TFDTransport>		transportOutput(new att::TFDTransport(output_fd));
-	boost::shared_ptr<atp::TBinaryProtocol>		protocolOutput(new atp::TBinaryProtocol(transportOutput));
-	transportOutput->open();
-	
 
 	///////////////////////////////////////////////////////////////////////////////  SC ITEMS READ CYCLE
-	start = chrono::high_resolution_clock ::now();
 	sc::StreamItem stream_item;
 	long total_content_size=0;
 	int  stream_items_count=0;
-	int  matches=0;
-	int  written=0;
-	#ifdef DEBUG
-	clog << "Reading stream item content from : " << text_source << endl;
-	#endif
 	
+	// content file
+	std::ofstream  corpus_file("corpus.txt");
+	std::string 	buf(100000,0);
+
 	while (true) {
 		try {
  	    		//------------------------------------------------------------------   get item content
@@ -256,138 +239,27 @@ int main(int argc, char **argv) {
 
 			pos_t		b   	   	= content.data();
 			pos_t		e          	= b+content.size();
-			pos_t		p          	= b;
-			pos_t		match_b, match_e;
-
-			names.set_content(p, e);
-
-			while (names.find_next(match_b, match_e)) {
-			
-				// found
-				#ifdef DEBUG
-				clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
-				clog << "   pos:" << match_b-b << " \t" << std::string(match_b, match_e) << "\n";
-				#endif
-			
-			
-				// mapping between canonical form of target and text actually found in document
-			
-				// For each of the current matches, add a label to the 
-				// list of labels.  A label records the character 
-				// positions of the match.
-				matches++;
-				
-				// Add the target identified to the label.  Note this 
-				// should be identical to what is in the rating 
-				// data we add later.
-				sc::Target target;
-				target.target_id = "1";
-			
-				sc::Label label;
-				label.target = target;
-			
-				// Add the actual offsets 
-				sc::Offset offset;
-				offset.type = sc::OffsetType::CHARS;
-				
-				offset.first = match_b - b;
-				offset.length = match_e - match_b;
-				offset.content_form = std::string(match_b, match_e);
-			
-				label.offsets[sc::OffsetType::CHARS] = offset;
-				label.__isset.offsets = true;
-			
-				// Add new label to the list of labels.
-				stream_item.body.labels[annotatorID].push_back(label);
-			
-				// Map of actual text mapped 
-				target_text_map[target.target_id].insert(std::string(match_b, match_e));
-
-				// advance pos to begining of unsearched content
-				p = match_e;
-			}
+			buf.assign(b,e);
 	    		
-	    		//------------------------------------------------------------------   sc processing
-			
-	    		// Add the rating object for each target that matched in a document
-	    		for ( auto match=target_text_map.begin(); match!=target_text_map.end(); ++match) {
-	    			// Construct new rating
-	    			sc::Rating rating;
-	    			
-	    			// Flag that it contained a mention
-	    			rating.__set_contains_mention(true);
-	    			
-	    			// Construct a target object for each match
-	    			sc::Target target;
-	    			target.target_id = match->first;
-	    			rating.target = target;
-	    			
-	    			// Copy all the strings that matched into the mentions field
-	    			copy(match->second.begin(), match->second.end(), back_inserter(rating.mentions));
-	    			
-	    			// Subtle but vital, we need to do the following for proper serialization.
-	    			rating.__isset.mentions = true;
-	    			
-	    			// Add the annotator from above.
-	    			rating.annotator = annotator;
-	    			
-	    			// Push the new rating onto the rating list for this annotator.
-	    			stream_item.ratings[annotatorID].push_back(rating);
-	    		}
-	    		
-	    		if (not negate) { 
-	    		        // Write stream_item to stdout if it had any ratings
-	    		        if (target_text_map.size() > 0) {
-	    		            stream_item.write(protocolOutput.get());
-	    		            written++;
-	    		        }
-	    		} else if (target_text_map.size() == 0) {
-	    			// Write stream_item to stdout if user requested
-	    		       	// to show ones that didn't have any matches
-	    			stream_item.write(protocolOutput.get());
-	    			written++;
-	    		}
+			corpus_file << "\n<item-" <<  stream_items_count << "> " << buf.assign(b,e) << '\n';
 	    		
 	    		// Increment count of stream items processed
 	    		stream_items_count++;
+
 			cerr << "item: " << stream_items_count << '\r';
-			if (stream_items_count >= max_items)  throw att::TTransportException();
+			//if (stream_items_count >= max_items)  throw att::TTransportException();
+
 	    	}
 
 		//----------------------------------------------------------------------------  items read cycle exit
 
-		//catch (att::TTransportException e) {
 		catch (...) {
-			// Vital to flush the buffered output or you will lose the last one
-			transportOutput->flush();
 			clog << "Total stream items processed: " << stream_items_count << endl;
-			clog << "Total matches: "                << matches << endl;
-			clog << "Total stream items written: "   << written << endl;
-			if (negate) {
-				clog << " (Note, stream items written were non-matching ones)" << endl;
-			}
 			break;
 		}
 	}
 
-	/////////////////////////////////////////////////////////////////////////// TIMING RESULTS
-	
-	{
-	auto diff = chrono::high_resolution_clock ::now() - start;
-	double nsec                 = chrono::duration_cast<chrono::nanoseconds>(diff).count();
-	double search_time          = nsec/1e9;
-	double stream_items_per_sec = double(stream_items_count) / (nsec/1e9);
-	double mb_per_sec           = double(total_content_size)/1000000 / (nsec/1e9);
-
-	clog << "search time: "      << search_time << " sec" << endl;
-	clog << "stream items/sec: " << stream_items_per_sec << endl;
-	clog << "MB/sec: "           << mb_per_sec << endl;
-
-	std::ofstream  log("log",std::ofstream::app);       
-	if (!log)  { cerr << "log file open failed\n" ; exit(2); }
-
-	log << stream_items_count << '\t' <<  mb_per_sec << '\t' << stream_items_per_sec << endl;
-	}
-
+	cerr << "writing names memory map file\n";
+	lvv::mmap_write("names_data.mmap", *names_data);
 }
 

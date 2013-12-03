@@ -140,16 +140,18 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 
 ########################################### BUILD FILTER
 
-%-filter:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-%-filter:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
-%-filter:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
+%-filter dump:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+%-filter dump:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
+%-filter dump:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
 
 $(filternames_thrift_o): filternames_types.h
-filter.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
+filter.o dump.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
-naive-filter:          filter.o  $(filternames_thrift_o)  naive.o
-multifast-filter:      filter.o  $(filternames_thrift_o)  multifast.o
-vsearch-filter:        filter.o  $(filternames_thrift_o)  vsearch.o
+naive-filter:          filter.o		$(filternames_thrift_o)  naive.o
+multifast-filter:      filter.o		$(filternames_thrift_o)  multifast.o
+vsearch-filter:        filter.o  	$(filternames_thrift_o)  vsearch.o
+
+dump:                  dump.o		$(filternames_thrift_o)  naive.o
 
 ###########################################  Benchmarks
 
@@ -158,6 +160,10 @@ vsearch-filter:        filter.o  $(filternames_thrift_o)  vsearch.o
 run:  $(LINK)-filter | $(DATA)
 	@$(POWER_SAVING_OFF)
 	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./$(LINK)-filter -N $(N) -f $(NAMES) -I $(I) > $(OUTPUT)
+
+datadump:  dump | $(DATA)
+	$(RM) corpus.txt
+	$(CAT_CORPUS_TO_STDOUT) |  ./dump  -f $(NAMES) 
 
 ##########################################  MISC
 clean:

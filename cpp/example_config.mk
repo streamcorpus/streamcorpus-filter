@@ -7,7 +7,7 @@ STREAMCORPUS_REPO := http://github.com/trec-kba/streamcorpus
 
 # benchmarking parameters:  search-library;  max names to use;  max items to use
 LINK    ?= multifast
-N	?= 1000
+N	?= 10
 I	?= 20
 
 # Path to streamcorpus source repo.
