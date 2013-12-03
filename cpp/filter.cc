@@ -87,14 +87,18 @@ int main(int argc, char **argv) {
 
 	
 	////////////////////////////////////////////////////////////// BUILD/CPU ID
-	cerr << ID << endl; 
+	cerr << "filter  " << ID ; 
 
 	#ifdef DEBUG 
-		cerr << "MODE=DEBUG\n";
+		cerr << "   MODE=DEBUG";
 	#endif
 
 	#ifdef OPTIMIZE 
-		cerr << "MODE=OPTIMIZE\n";
+		cerr << "   MODE=OPTIMIZE";
+	#endif
+
+	#ifdef PROFILE 
+		cerr << "   MODE=PROFILE";
 	#endif
 
 	cerr << "   max-names: " << max_names << "   max-items: " << max_items << endl;
@@ -151,7 +155,7 @@ int main(int argc, char **argv) {
 	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
 	double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
-	clog << "Names in file: "  << filter_names.name_to_target_ids.size()
+	clog << "Names: "  << filter_names.name_to_target_ids.size()
 	     << ";  used: "        << names.size()
 	     << ";  min: "         << name_min
 	     << ";  max: "         << name_max
@@ -345,6 +349,7 @@ int main(int argc, char **argv) {
 	    		
 	    		// Increment count of stream items processed
 	    		stream_items_count++;
+			cerr << "item: " << stream_items_count << '\r';
 			if (stream_items_count >= max_items)  throw att::TTransportException();
 	    	}
 

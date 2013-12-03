@@ -153,7 +153,7 @@ vsearch-filter:        filter.o  $(filternames_thrift_o)  vsearch.o
 
 run:  $(LINK)-filter | $(DATA)
 	@$(POWER_SAVING_OFF)
-	$(CAT_CORPUS_TO_STDOUT) | ./$(LINK)-filter -N $(N) -f $(NAMES) > $(OUTPUT)
+	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./$(LINK)-filter -N $(N) -f $(NAMES) -I $(I) > $(OUTPUT)
 
 ##########################################  MISC
 clean:
