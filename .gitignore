@@ -41,4 +41,8 @@ cpp/u-naive
 cpp/data
 cpp/streamcorpus
 cpp/multifast
+cpp/*-vsearch
+cpp/*.gprof*
+cpp/pro*
+cpp/log*
 
