@@ -46,5 +46,9 @@ cpp/*.gprof*
 cpp/pro*
 cpp/log*
 cpp/mmap.h
+cpp/*.mmap
+cpp/b-multifast
+cpp/b-naive
+cpp/b-vsearch
 
 

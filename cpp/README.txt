@@ -35,3 +35,16 @@ source, it still under 50 LOC, if you want to know how it works.  To test
 something, use CHECK macro:
 
 	CHECK(result==expected_value);
+
+Thrift-free benchmarks
+----------------------
+
+This benchmarks was done as run-one-time, just to fund out where bottleneck
+is. So this is not auto. But if you want to do it,  you will need 1st to
+generate names_data.mmap and corpus.txt with
+
+	make datadump
+
+Edit b-multifast.cc to have exact filenames pathes,  then run benchmarks:
+
+	make b-multifast && b-multifast
