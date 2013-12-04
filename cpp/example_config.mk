@@ -7,7 +7,7 @@ STREAMCORPUS_REPO := http://github.com/trec-kba/streamcorpus
 
 # benchmarking parameters:  search-library;  max names to use;  max items to use
 LINK    ?= multifast
-N	?= 1000
+N	?= 10
 I	?= 20
 
 # Path to streamcorpus source repo.
@@ -20,12 +20,17 @@ MULTIFAST = multifast
 NAMES = data/names.scf
 
 # Command which sends items text to stdout
-CORPUS := data/corpus/
-CAT_CORPUS_TO_STDOUT ?= find $(CORPUS) -type f | head -n $(I) | xargs cat
+CORPUS := data/corpus.lz4
+#CAT_CORPUS_TO_STDOUT ?= find $(CORPUS) -type f | head -n $(I) | xargs cat
+CAT_CORPUS_TO_STDOUT ?= lz4c -dc  $(CORPUS) 
 
 # Path to saved output from filter
-OUTPUT = /tmp/filtered.sc
+#OUTPUT = /tmp/filtered.sc
+OUTPUT = /dev/null
 
 # optional: command which turns off powersaving (needed for benchmarking)
 #POWER_SAVING_OFF = su -c 'cpufreq-set -c0 -g performance'; su -c 'cpufreq-set -c1 -g performance'
+
+# OS Time command
+TIME = /usr/bin/time
 

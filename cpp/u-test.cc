@@ -30,17 +30,16 @@ int main() {
 	names.post_ctor();
 
 	{ ////////////////////////////////////////////////  FIND AAA, BBB
-	string		content         = "aaa bbb aaa z";
+	string		content         = "aaa bbb aaa z"; //"aaa bbb aaa z aaa aaa bbb";
 	vector<long>    results;
 	pos_t		b   	   	= content.data();
 	pos_t		e          	= b+content.size();
-	pos_t		p          	= b;
 	pos_t		match_b, match_e;
 
 						// find all instanses of needle
-	while (names.search(p, e, match_b, match_e), match_b) {
+	names.set_content(b, e);
+	while (names.find_next(match_b, match_e)) {
 		results.push_back(match_b - b) ;
-                p = match_e;
 	}
 
 						// compare result with expected values
@@ -56,14 +55,14 @@ int main() {
 	vector<long>    results;
 	pos_t		b   	   	= content.data();
 	pos_t		e          	= b+content.size();
-	pos_t		p          	= b;
 	pos_t		match_b, match_e;
 
 						// find all instanses of needle
-	while (names.search(p, e, match_b, match_e), match_b) {
-		results.push_back(p-b) ;
-                p = match_e;
+	names.set_content(b, e);
+	while (names.find_next(match_b, match_e)) {
+		results.push_back(match_b - b) ;
 	}
+
 						// compare result with expected values
 	CHECK_ARE_EQUAL (results.size(),  0);
 	}

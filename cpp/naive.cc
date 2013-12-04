@@ -6,13 +6,9 @@
 #include <iostream>
 
 
-
 //////////////////////////////////////////////////////////////////////////////  NAMES IMPL
 
-
 struct  names_t::names_impl {
-
-	std::vector<pos_t> B,E;
 
 	         names_impl () {};
 	        ~names_impl () {}
@@ -26,29 +22,26 @@ struct  names_t::names_impl {
 		E.push_back(e);
 	};
 
-	
-	void search  (pos_t b, pos_t e,  pos_t& match_b, pos_t& match_e) {
-		for (pos_t p = b;  p <= e;  ++p)  {
+	void set_content (pos_t b_, pos_t e_)   { b=b_;  e=e_; p=b; };
+
+	bool find_next   (pos_t& match_b, pos_t& match_e) {
+		for (; p <= e;  ++p)  {
 			for(size_t i=0;  i<B.size();  ++i) {
 				if ((E[i] - B[i]  < e-p)  &&  std::equal(B[i], E[i], p)) {
 					match_b = p;
 					match_e = p + (E[i] - B[i]);
-					return;
+					p = match_e;
+					return true;
 				}
 			}
 		}
 		match_b = nullptr;
+		return false;
 	};
+
+	// private
+	pos_t  b, e, p;
+	std::vector<pos_t> B,E;
 };
 
-// names_t definitions
-
-       names_t::names_t    ()  { impl = new names_impl; }
-       names_t::~names_t   ()  { delete impl; }
-
-void   names_t::post_ctor  ()                                  		        { impl->post_ctor(); };
-void   names_t::insert     (pos_t b, pos_t e)                                   { impl->insert(b, e); }
-void   names_t::search     (pos_t b, pos_t e,  pos_t& match_b, pos_t& match_e)  { impl->search(b, e, match_b, match_e); }
-void   names_t::print      () 						        { impl->print(); }
-size_t names_t::size       () 						        { return impl->size(); }
-
+SEARCH_IFACE_TO_IMPL_FORWARDING
