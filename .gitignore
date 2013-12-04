@@ -50,5 +50,6 @@ cpp/*.mmap
 cpp/b-multifast
 cpp/b-naive
 cpp/b-vsearch
+cpp/dump
 
 
