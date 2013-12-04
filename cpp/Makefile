@@ -75,13 +75,13 @@ $(filtername_thrift_cpp): filternames.thrift
 
 ##  naive  ----------
 
-u-naive:   	u-test.o  naive.o
+%-naive:   	%-test.o  naive.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
 ##  vsearch  ----------
 
-u-vsearch:  u-test.o  vsearch.o
+%-vsearch:  %-test.o  vsearch.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
@@ -93,18 +93,19 @@ multifast.o:                  CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
 %multifast multifast-%:       LDLIBS   += -l ahocorasick
 
 
-u-multifast:   u-test.o  multifast.o
+%-multifast:   %-test.o  multifast.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
 ##  test  ----------
 
-test.o:  search.h
+%-test.o:  %-test.cc search.h
 
-test:    $(LIBS) u-naive u-multifast u-vsearch
+
+test:    $(LIBS) u-naive u-multifast
 	./u-naive
 	./u-multifast
-	./u-vsearch
+
 
 ##########################################  DATA & EXTERNAL LIBS
 

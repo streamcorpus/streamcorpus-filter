@@ -49,6 +49,11 @@
 	using std::numeric_limits;
 #include <fstream>
 
+//#ifdef LVV
+//#include <ro/ro.h>
+//#include <scc/simple.h>
+//#endif
+
 
 // BOOST
 #include <boost/program_options.hpp>
@@ -58,7 +63,7 @@
 template<size_t N=4446930, size_t TOTAL=116942447, class T=char>
 struct names_data_t{
 	T data[TOTAL];
-	T* E[N];
+	size_t EI[N];   // end of string at address:   std::begin(data) + EI[i]
 	const static size_t size=N;
 	const static size_t total_size=TOTAL;
 };
@@ -148,22 +153,24 @@ int main(int argc, char **argv) {
 	size_t total_names_size=0;
 	
 	names_data_t<>*  names_data = new names_data_t<>();
-	char*  b = &((*names_data).data[0]);
+	char*  b = &(names_data->data[0]);
 	char*  d = b;
 	size_t i = 0;
+							// clog << "begin: " << (void*)b << endl;
 
       
 	for(auto& pr : filter_names.name_to_target_ids) {
 		auto s  = pr.first.data();
-		auto sz = pr.first.size();
-
+		long sz = pr.first.size();
+							assert(0 < sz  &&  sz < 100000);
 		if (i < names_data->size) {
 			std::copy(s, s+sz, d);
-			d += sz ;
-			(*names_data).E[i] = d;
-					assert((*names_data).E[i]  <=  b + names_data->total_size);
+			d += sz;
+			names_data->EI[i] = d - std::begin(names_data->data);
+							assert(names_data->EI[i]  <=  names_data->total_size);
+							// clog << i << '\t' << (void*)d << endl;;
 		}
-		i++;
+		++i;
 		total_names_size += sz;
 	}
 	transportScf->close();
