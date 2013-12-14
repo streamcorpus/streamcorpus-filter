@@ -49,10 +49,13 @@
 	using std::numeric_limits;
 #include <fstream>
 
+// LVVLIB (http://github.com/lvv/lvvlib)
 //#ifdef LVV
 //#include <ro/ro.h>
 //#include <scc/simple.h>
 //#endif
+#include <token>
+
 
 
 // BOOST
@@ -60,14 +63,30 @@
 	namespace po = boost::program_options;
 
 
-template<size_t N=4446930, size_t TOTAL=116942447, class T=char>
+//////////////////////////////////////////////////////////////////////////////////////
+
+
+
+template<size_t N=4446930, size_t MEM=116942447, class T=char>
 struct names_data_t{
-	T data[TOTAL];
+	T data[MEM];
 	size_t EI[N];   // end of string at address:   std::begin(data) + EI[i]
-	const static size_t size=N;
-	const static size_t total_size=TOTAL;
+	const static size_t size=N;	// number of names
+	const static size_t mem=MEM;    // total number of bytes occupied by names
 };
 
+
+bool  good_name(const pos_t b, const pos_t e) {
+	constexpr size_t	max_name_length = 64;
+	constexpr size_t	min_name_length = 3;
+	constexpr size_t	min_name_nokens = 1;
+
+	if ( e-b > max_name_length ) return false;
+	if ( e-b < min_name_length ) return false;
+
+
+	return true;
+};
 
 int main(int argc, char **argv) {
 	
@@ -150,7 +169,7 @@ int main(int argc, char **argv) {
 
 	size_t name_min=9999999999;
 	size_t name_max=0;
-	size_t total_names_size=0;
+	size_t total_names_length=0;
 	
 	names_data_t<>*  names_data = new names_data_t<>();
 	char*  b = &(names_data->data[0]);
@@ -159,29 +178,35 @@ int main(int argc, char **argv) {
 							// clog << "begin: " << (void*)b << endl;
 
       
+	// for all names in filter_names
 	for(auto& pr : filter_names.name_to_target_ids) {
 		auto s  = pr.first.data();
 		long sz = pr.first.size();
-							assert(0 < sz  &&  sz < 100000);
-		if (i < names_data->size) {
+
+		// copy a name to names_data 
+		assert (i < names_data->size);
+		assert(0 < sz  &&  sz < 10000);
+
+		if (good_name(s, s+sz)) {
 			std::copy(s, s+sz, d);
 			d += sz;
 			names_data->EI[i] = d - std::begin(names_data->data);
-							assert(names_data->EI[i]  <=  names_data->total_size);
-							// clog << i << '\t' << (void*)d << endl;;
+
+			assert(names_data->EI[i]  <=  names_data->mem);
+			++i;
+			total_names_length += sz;
 		}
-		++i;
-		total_names_size += sz;
+
 	}
 	transportScf->close();
 
 
-	clog << "Names: "  << filter_names.name_to_target_ids.size()
-	     << ";  used: "        << names_data->size
-	     << ";  min: "         << name_min
-	     << ";  max: "         << name_max
-	     << ";  avg: "         << double(total_names_size)/names_data->size
-	     << ";  total names size: " << total_names_size
+	clog << "NAMES: "  << filter_names.name_to_target_ids.size()
+	     << ";  used:       "        << names_data->size
+	     << ";  min length: "         << name_min
+	     << ";  max length: "         << name_max
+	     << ";  avg length: "         << double(total_names_length)/names_data->size
+	     << ";  total names length: " << total_names_length
 	     << endl;
 
 					/*// check data
