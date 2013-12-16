@@ -135,7 +135,8 @@ $(STREAMCORPUS):
 	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
 
 $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
-	make -f $(PWD)/streamcorpus.mk  -C  $(STREAMCORPUS)/cpp/  libstreamcorpus.a
+	make -f $(PWD)/streamcorpus.mk  -C  $(STREAMCORPUS)/cpp/  libstreamcorpus.a;
+
 	#cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  make  MAKE_VERBOSE=1 -B;  ls libstreamcorpus.a
 
 
@@ -143,7 +144,7 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 
 %-filter dump:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
 %-filter dump:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
-%-filter dump:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
+%-filter dump:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
 $(filternames_thrift_o): filternames_types.h
 filter.o dump.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
