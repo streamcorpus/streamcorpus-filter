@@ -129,7 +129,7 @@ $(MULTIFAST) :
 
 $(MULTIFAST)/ahocorasick/build/libahocorasick.a : $(MULTIFAST)
 	make -BC $(MULTIFAST)/ahocorasick/
-	ls      $(MULTIFAST)/ahocorasick/build/libahocorasick.a
+	ls -     $(MULTIFAST)/ahocorasick/build/libahocorasick.a
 	
 $(STREAMCORPUS):
 	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
@@ -166,18 +166,11 @@ names_data.mmap:  mk_mmap_names | $(DATA)
 	$(CAT_CORPUS_TO_STDOUT) |  ./mk_mmap_names  -f $(NAMES) 
 	ls -l names_data.mmap 
 
-###########################################  Benchmarks
-
-#RUN:	MODE := OPTIMIZE
-
-run:  $(LINK)-filter | $(DATA)
-	@$(POWER_SAVING_OFF)
-	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./$(LINK)-filter -N $(N) -f $(NAMES) -I $(I) > $(OUTPUT)
-
 ##########################################  MISC
 clean:
-	$(RM)  *.o filter *-filter u-naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch [tu]-search
+	$(RM)  *.o filter *-filter  $(output) $(filtername_thrift_cpp) *.gch [tu]-search mk_mmap_names
 	$(RM)  gmon.out  *.prof  *.prof.png
+	$(RM)  ?-multifast ?-multifast ?-naive ?-vsearch
 
 libclean:  clean
 	make -C $(STREAMCORPUS)/cpp/      clean
@@ -189,6 +182,17 @@ gprof:
 	cat $(exe).gprof  |  gprof2dot -s -n 0 -e 0 | dot -Tpng -o $(exe).gprof.png;
 	eog $(exe).gprof.png
 
+###########################################  Benchmarks
+
+#RUN:	MODE := OPTIMIZE
+
+run:  $(LINK)-filter | $(DATA)
+	@$(POWER_SAVING_OFF)
+	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./$(LINK)-filter -N $(N) -f $(NAMES) -I $(I) > $(OUTPUT)
+
+###########################################  MMAP Benchmarks
+B-multifast:  b-multifast
+	$(TIME) ./b-multifast
 #########################################  
 
 vsearch.o : search.h

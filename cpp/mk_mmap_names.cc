@@ -67,10 +67,10 @@
 
 
 
-template<size_t N=4446930, size_t MEM=116942447, class T=char>
+template<size_t N=4015601, size_t MEM=80177319, class T=char> 	// <-----------  change value according to count_names run
 struct names_data_t{
-	T data[MEM];
 	size_t EI[N];   // end of string at address:   std::begin(data) + EI[i]
+	T data[MEM];
 	const static size_t size=N;	// number of names
 	const static size_t mem=MEM;    // total number of bytes occupied by names
 };
@@ -173,22 +173,28 @@ int main(int argc, char **argv) {
 	size_t name_min=9999999999;
 	size_t name_max=0;
 	size_t total_names_length=0;
-	
-	names_data_t<>*  names_data = new names_data_t<>();
-	char*  b = &(names_data->data[0]);
-	char*  d = b;
-	size_t i = 0; 		// index in EI 
+
 	size_t good_names = 0; 	  
 	size_t bad_names = 0; 	  
+	
+	names_data_t<>*  names_data = new names_data_t<>();
+	char*  b0 = &(names_data->data[0]);     // beginning of data 
+	pos_t  b  =b0;				// beginning of current name
+	char*  d = b0;          		// pointer to  end of written data (and beginning of free data)
+	size_t i = 0; 				// index in EI 
 							// clog << "begin: " << (void*)b << endl;
 
-      
 	// for all names in filter_names
 	for(auto& pr : filter_names.name_to_target_ids) {
 		auto s  = pr.first.data();
-		long sz = pr.first.size();
+		size_t sz = pr.first.size();
 
 		if (good_name(s, s+sz)) {
+
+			++good_names;
+			name_min = std::min(name_min, sz);
+			name_max = std::max(name_max, sz);
+
 			if (!count_only) {
 				// copy a name to names_data 
 				assert (i < names_data->size);
@@ -196,13 +202,13 @@ int main(int argc, char **argv) {
 
 				std::copy(s, s+sz, d);
 				d += sz;
-				names_data->EI[i] = d - std::begin(names_data->data);
+				names_data->EI[i] = d - b0;
 
 				assert(names_data->EI[i]  <=  names_data->mem);
 				++i;
+					//cerr << i << "\t(" << string(s,s+sz) << ")\n";
 			}
 			total_names_length += sz;
-			++good_names;
 		} else {
 			++bad_names;
 		}
@@ -212,7 +218,7 @@ int main(int argc, char **argv) {
 
 
 	clog << "NAMES: "  << filter_names.name_to_target_ids.size()
-	     << ";\n\t used:       "         << names_data->size
+	     << ";\n\t in file:    "         << names_data->size
 	     << ";\n\t good:       "         << good_names
 	     << ";\n\t bad:        "         << bad_names
 	     << ";\n\t min length: "         << name_min
@@ -221,10 +227,12 @@ int main(int argc, char **argv) {
 	     << ";\n\t total names length: " << total_names_length
 	     << endl;
 
-	cerr << "writing names memory map file\n";
-	lvv::mmap_write("names_data.mmap", *names_data);
 	if (count_only)  exit(0);
 
+	cerr << "writing names memory map file\n";
+	lvv::mmap_write("names_data.mmap", *names_data);
+
+	exit(0);
 
 
 	///////////////////////////////////////////////////////////////////////////////  STREAMCORPUS
@@ -310,6 +318,5 @@ int main(int argc, char **argv) {
 			break;
 		}
 	}
-
 }
 
