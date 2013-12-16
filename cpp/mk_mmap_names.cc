@@ -77,9 +77,9 @@ struct names_data_t{
 
 
 bool  good_name(const pos_t b, const pos_t e) {
-	constexpr size_t	max_name_length = 64;
-	constexpr size_t	min_name_length = 3;
-	constexpr size_t	min_name_nokens = 1;
+	constexpr long	max_name_length = 64;
+	constexpr long	min_name_length = 3;
+	//constexpr long	min_name_tokens = 1;
 
 	if ( e-b > max_name_length ) return false;
 	if ( e-b < min_name_length ) return false;
@@ -107,7 +107,7 @@ int main(int argc, char **argv) {
 		("text_source,t", po::value<string>(&text_source), "text source in stream item")
 		("filternames,f", po::value<string>(&filtername_path), "filternames file")
 		("max-names,N", po::value<long>(&max_names), "maximum number of names to use")
-		("count-only,c", po::value<bool>(&count_only), "maximum number of names to use")
+		("count,c", "count names")
 	;
 	
 	// Parse command line options
@@ -120,9 +120,12 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	if (vm.count("count")) count_only = true;
+
+
 	
 	////////////////////////////////////////////////////////////// BUILD/CPU ID
-	cerr << "dump  " << ID ; 
+	cerr << "mk_mmap_names  " << ID ; 
 
 	#ifdef DEBUG 
 		cerr << "   MODE=DEBUG";
@@ -209,16 +212,24 @@ int main(int argc, char **argv) {
 
 
 	clog << "NAMES: "  << filter_names.name_to_target_ids.size()
-	     << ";  used:       "         << names_data->size
-	     << ";  good:       "         << good_names
-	     << ";  bad:        "         << bad_names
-	     << ";  min length: "         << name_min
-	     << ";  max length: "         << name_max
-	     << ";  avg length: "         << double(total_names_length)/names_data->size
-	     << ";  total names length: " << total_names_length
+	     << ";\n\t used:       "         << names_data->size
+	     << ";\n\t good:       "         << good_names
+	     << ";\n\t bad:        "         << bad_names
+	     << ";\n\t min length: "         << name_min
+	     << ";\n\t max length: "         << name_max
+	     << ";\n\t avg length: "         << double(total_names_length)/names_data->size
+	     << ";\n\t total names length: " << total_names_length
 	     << endl;
 
+	cerr << "writing names memory map file\n";
+	lvv::mmap_write("names_data.mmap", *names_data);
+	if (count_only)  exit(0);
+
+
+
+	///////////////////////////////////////////////////////////////////////////////  STREAMCORPUS
 					/*// check data
+					 *
 					for(const auto& pr : filter_names.target_id_to_names) {
 						clog << pr.first << endl;
 						for(auto& name : pr.second) {
@@ -300,7 +311,5 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	cerr << "writing names memory map file\n";
-	lvv::mmap_write("names_data.mmap", *names_data);
 }
 

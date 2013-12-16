@@ -53,5 +53,6 @@ cpp/b-vsearch
 cpp/dump
 cpp/note
 cpp/lvvlib
+cpp/mk_mmap_names
 
 

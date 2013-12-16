@@ -142,18 +142,29 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 
 ########################################### BUILD FILTER
 
-%-filter dump:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-%-filter dump:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
-%-filter dump:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
+%-filter mk_mmap_names:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+%-filter mk_mmap_names:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
+%-filter mk_mmap_names:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
 $(filternames_thrift_o): filternames_types.h
-filter.o dump.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
+filter.o mk_mmap_names.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
 naive-filter:          filter.o		$(filternames_thrift_o)  naive.o
 multifast-filter:      filter.o		$(filternames_thrift_o)  multifast.o
 vsearch-filter:        filter.o  	$(filternames_thrift_o)  vsearch.o
 
-dump:                  dump.o		$(filternames_thrift_o)  naive.o
+mk_mmap_names:         mk_mmap_names.o		$(filternames_thrift_o)  naive.o
+
+###########################################  make names mmap
+
+count_names:  mk_mmap_names | $(DATA)
+	$(RM) corpus.txt
+	$(CAT_CORPUS_TO_STDOUT) |  ./mk_mmap_names  -f $(NAMES)  -c
+
+names_data.mmap:  mk_mmap_names | $(DATA)
+	$(RM) corpus.txt
+	$(CAT_CORPUS_TO_STDOUT) |  ./mk_mmap_names  -f $(NAMES) 
+	ls -l names_data.mmap 
 
 ###########################################  Benchmarks
 
@@ -162,10 +173,6 @@ dump:                  dump.o		$(filternames_thrift_o)  naive.o
 run:  $(LINK)-filter | $(DATA)
 	@$(POWER_SAVING_OFF)
 	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./$(LINK)-filter -N $(N) -f $(NAMES) -I $(I) > $(OUTPUT)
-
-datadump:  dump | $(DATA)
-	$(RM) corpus.txt
-	$(CAT_CORPUS_TO_STDOUT) |  ./dump  -f $(NAMES) 
 
 ##########################################  MISC
 clean:
