@@ -24,7 +24,10 @@ using namespace std;
 int main() {
 
 	/////////////////////////////////////////////////  NAMES
-	vector<string>		names_str  {"aaa","bbb"};
+	vector<string>		names_str  {
+		"aaa",
+		"bbb"
+	};
 	names_t			names;  
 	for(string &n:  names_str)  names.insert(n.data(), n.data()+n.size());
 	names.post_ctor();
