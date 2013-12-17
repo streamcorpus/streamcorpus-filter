@@ -169,7 +169,7 @@ $(MULTIFAST) :
 
 $(MULTIFAST)/ahocorasick/build/libahocorasick.a : $(MULTIFAST)
 	make -BC $(MULTIFAST)/ahocorasick/
-	ls -     $(MULTIFAST)/ahocorasick/build/libahocorasick.a
+	ls   -l  $(MULTIFAST)/ahocorasick/build/libahocorasick.a
 	
 $(STREAMCORPUS):
 	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
