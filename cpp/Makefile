@@ -129,47 +129,48 @@ $(MULTIFAST) :
 
 $(MULTIFAST)/ahocorasick/build/libahocorasick.a : $(MULTIFAST)
 	make -BC $(MULTIFAST)/ahocorasick/
-	ls      $(MULTIFAST)/ahocorasick/build/libahocorasick.a
+	ls -     $(MULTIFAST)/ahocorasick/build/libahocorasick.a
 	
 $(STREAMCORPUS):
 	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
 
 $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
-	make -f $(PWD)/streamcorpus.mk  -C  $(STREAMCORPUS)/cpp/  libstreamcorpus.a
+	make -f $(PWD)/streamcorpus.mk  -C  $(STREAMCORPUS)/cpp/  libstreamcorpus.a;
+
 	#cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  make  MAKE_VERBOSE=1 -B;  ls libstreamcorpus.a
 
 
 ########################################### BUILD FILTER
 
-%-filter dump:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-%-filter dump:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
-%-filter dump:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options
+%-filter mk_mmap_names:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+%-filter mk_mmap_names:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
+%-filter mk_mmap_names:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
 $(filternames_thrift_o): filternames_types.h
-filter.o dump.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
+filter.o mk_mmap_names.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
 naive-filter:          filter.o		$(filternames_thrift_o)  naive.o
 multifast-filter:      filter.o		$(filternames_thrift_o)  multifast.o
 vsearch-filter:        filter.o  	$(filternames_thrift_o)  vsearch.o
 
-dump:                  dump.o		$(filternames_thrift_o)  naive.o
+mk_mmap_names:         mk_mmap_names.o		$(filternames_thrift_o)  naive.o
 
-###########################################  Benchmarks
+###########################################  make names mmap
 
-#RUN:	MODE := OPTIMIZE
-
-run:  $(LINK)-filter | $(DATA)
-	@$(POWER_SAVING_OFF)
-	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./$(LINK)-filter -N $(N) -f $(NAMES) -I $(I) > $(OUTPUT)
-
-datadump:  dump | $(DATA)
+count_names:  mk_mmap_names | $(DATA)
 	$(RM) corpus.txt
-	$(CAT_CORPUS_TO_STDOUT) |  ./dump  -f $(NAMES) 
+	$(CAT_CORPUS_TO_STDOUT) |  ./mk_mmap_names  -f $(NAMES)  -c
+
+names_data.mmap:  mk_mmap_names | $(DATA)
+	$(RM) corpus.txt
+	$(CAT_CORPUS_TO_STDOUT) |  ./mk_mmap_names  -f $(NAMES) 
+	ls -l names_data.mmap 
 
 ##########################################  MISC
 clean:
-	$(RM)  *.o filter *-filter u-naive  u-multifast $(output) $(filtername_thrift_cpp) *.gch [tu]-search
+	$(RM)  *.o filter *-filter  $(output) $(filtername_thrift_cpp) *.gch [tu]-search mk_mmap_names
 	$(RM)  gmon.out  *.prof  *.prof.png
+	$(RM)  ?-multifast ?-multifast ?-naive ?-vsearch
 
 libclean:  clean
 	make -C $(STREAMCORPUS)/cpp/      clean
@@ -181,6 +182,17 @@ gprof:
 	cat $(exe).gprof  |  gprof2dot -s -n 0 -e 0 | dot -Tpng -o $(exe).gprof.png;
 	eog $(exe).gprof.png
 
+###########################################  Benchmarks
+
+#RUN:	MODE := OPTIMIZE
+
+run:  $(LINK)-filter | $(DATA)
+	@$(POWER_SAVING_OFF)
+	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./$(LINK)-filter -N $(N) -f $(NAMES) -I $(I) > $(OUTPUT)
+
+###########################################  MMAP Benchmarks
+B-multifast:  b-multifast
+	$(TIME) ./b-multifast
 #########################################  
 
 vsearch.o : search.h

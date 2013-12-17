@@ -1,12 +1,18 @@
 
-STREAMCORPUS_O := streamcorpus_constants.o streamcorpus_types.o
+%:  %.o
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
+	
+streamcorpus_cpp := streamcorpus_constants.h  streamcorpus_types.h
+streamcorpus_o   := streamcorpus_constants.o  streamcorpus_types.o
 
-$(STREAMCORPUS_O): 
-	thrift  --out . --gen cpp  filternames.thrift
+$(streamcorpus_cpp): 
+	thrift  --out . --gen cpp   ../if/streamcorpus-v0_3_0.thrift
 
-libstreamcorpus.a: $(STREAMCORPUS_O)
-	ar -cvq  $@ $^
+$(streamcorpus_o): $(streamcorpus_cpp)
+
+libstreamcorpus.a: $(streamcorpus_o)
+	$(AR) -cvq  $@ $^
 
 clean: 
-	$(RM) $(STREAMCORPUS_O) libstreamcorpus.a
+	$(RM) $(streamcorpus_o) libstreamcorpus.a
 

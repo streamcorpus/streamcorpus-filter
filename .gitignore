@@ -50,5 +50,9 @@ cpp/*.mmap
 cpp/b-multifast
 cpp/b-naive
 cpp/b-vsearch
+cpp/dump
+cpp/note
+cpp/lvvlib
+cpp/mk_mmap_names
 
 

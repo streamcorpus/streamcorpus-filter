@@ -49,25 +49,45 @@
 	using std::numeric_limits;
 #include <fstream>
 
-//#ifdef LVV
-//#include <ro/ro.h>
-//#include <scc/simple.h>
-//#endif
-
-
 // BOOST
 #include <boost/program_options.hpp>
 	namespace po = boost::program_options;
 
+// LVVLIB (http://github.com/lvv/lvvlib)
+//#ifdef LVV
+//#include <ro/ro.h>
+//#include <scc/simple.h>
+//#endif
+#include "lvvlib/token.h"
 
-template<size_t N=4446930, size_t TOTAL=116942447, class T=char>
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////
+
+
+
+template<size_t N=4015601, size_t MEM=80177319, class T=char> 	// <-----------  change value according to count_names run
 struct names_data_t{
-	T data[TOTAL];
 	size_t EI[N];   // end of string at address:   std::begin(data) + EI[i]
-	const static size_t size=N;
-	const static size_t total_size=TOTAL;
+	T data[MEM];
+	const static size_t size=N;	// number of names
+	const static size_t mem=MEM;    // total number of bytes occupied by names
 };
 
+
+bool  good_name(const pos_t b, const pos_t e) {
+	constexpr long	max_name_length = 64;
+	constexpr long	min_name_length = 3;
+	//constexpr long	min_name_tokens = 1;
+
+	if ( e-b > max_name_length ) return false;
+	if ( e-b < min_name_length ) return false;
+
+        pos_t tb = get_tb(b,e);
+	if (tb==e) return false;
+	return true;
+};
 
 int main(int argc, char **argv) {
 	
@@ -76,19 +96,18 @@ int main(int argc, char **argv) {
 	// options
 	string		text_source	="clean_visible";
 	string		filtername_path;
-	bool		negate		= false;
 	long		max_names	= numeric_limits<long>::max();
 	long		max_items	= numeric_limits<long>::max();
+	bool		count_only	= false;
 
 	po::options_description desc("Allowed options");
 
 	desc.add_options()
 		("help,h", "help message")
 		("text_source,t", po::value<string>(&text_source), "text source in stream item")
-		("negate,n", po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
 		("filternames,f", po::value<string>(&filtername_path), "filternames file")
 		("max-names,N", po::value<long>(&max_names), "maximum number of names to use")
-		("max-items,I", po::value<long>(&max_items), "maximum number of items to process")
+		("count,c", "count names")
 	;
 	
 	// Parse command line options
@@ -101,9 +120,12 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+	if (vm.count("count")) count_only = true;
+
+
 	
 	////////////////////////////////////////////////////////////// BUILD/CPU ID
-	cerr << "dump  " << ID ; 
+	cerr << "mk_mmap_names  " << ID ; 
 
 	#ifdef DEBUG 
 		cerr << "   MODE=DEBUG";
@@ -150,41 +172,72 @@ int main(int argc, char **argv) {
 
 	size_t name_min=9999999999;
 	size_t name_max=0;
-	size_t total_names_size=0;
+	size_t total_names_length=0;
+
+	size_t good_names = 0; 	  
+	size_t bad_names = 0; 	  
 	
 	names_data_t<>*  names_data = new names_data_t<>();
-	char*  b = &(names_data->data[0]);
-	char*  d = b;
-	size_t i = 0;
+	char*  b0 = &(names_data->data[0]);     // beginning of data 
+	pos_t  b  =b0;				// beginning of current name
+	char*  d = b0;          		// pointer to  end of written data (and beginning of free data)
+	size_t i = 0; 				// index in EI 
 							// clog << "begin: " << (void*)b << endl;
 
-      
+	// for all names in filter_names
 	for(auto& pr : filter_names.name_to_target_ids) {
 		auto s  = pr.first.data();
-		long sz = pr.first.size();
-							assert(0 < sz  &&  sz < 100000);
-		if (i < names_data->size) {
-			std::copy(s, s+sz, d);
-			d += sz;
-			names_data->EI[i] = d - std::begin(names_data->data);
-							assert(names_data->EI[i]  <=  names_data->total_size);
-							// clog << i << '\t' << (void*)d << endl;;
+		size_t sz = pr.first.size();
+
+		if (good_name(s, s+sz)) {
+
+			++good_names;
+			name_min = std::min(name_min, sz);
+			name_max = std::max(name_max, sz);
+
+			if (!count_only) {
+				// copy a name to names_data 
+				assert (i < names_data->size);
+				assert(0 < sz  &&  sz < 10000);
+
+				std::copy(s, s+sz, d);
+				d += sz;
+				names_data->EI[i] = d - b0;
+
+				assert(names_data->EI[i]  <=  names_data->mem);
+				++i;
+					//cerr << i << "\t(" << string(s,s+sz) << ")\n";
+			}
+			total_names_length += sz;
+		} else {
+			++bad_names;
 		}
-		++i;
-		total_names_size += sz;
+
 	}
 	transportScf->close();
 
 
-	clog << "Names: "  << filter_names.name_to_target_ids.size()
-	     << ";  used: "        << names_data->size
-	     << ";  min: "         << name_min
-	     << ";  max: "         << name_max
-	     << ";  avg: "         << double(total_names_size)/names_data->size
-	     << ";  total names size: " << total_names_size
+	clog << "NAMES: "  << filter_names.name_to_target_ids.size()
+	     << ";\n\t in file:    "         << names_data->size
+	     << ";\n\t good:       "         << good_names
+	     << ";\n\t bad:        "         << bad_names
+	     << ";\n\t min length: "         << name_min
+	     << ";\n\t max length: "         << name_max
+	     << ";\n\t avg length: "         << double(total_names_length)/names_data->size
+	     << ";\n\t total names length: " << total_names_length
 	     << endl;
 
+	if (count_only)  exit(0);
+
+	cerr << "writing names memory map file\n";
+	lvv::mmap_write("names_data.mmap", *names_data);
+
+	exit(0);
+
+
+	///////////////////////////////////////////////////////////////////////////////  STREAMCORPUS
 					/*// check data
+					 *
 					for(const auto& pr : filter_names.target_id_to_names) {
 						clog << pr.first << endl;
 						for(auto& name : pr.second) {
@@ -253,7 +306,7 @@ int main(int argc, char **argv) {
 	    		// Increment count of stream items processed
 	    		stream_items_count++;
 
-			cerr << "item: " << stream_items_count << '\r';
+			cerr << "item: " << stream_items_count << '\n';
 			//if (stream_items_count >= max_items)  throw att::TTransportException();
 
 	    	}
@@ -265,8 +318,5 @@ int main(int argc, char **argv) {
 			break;
 		}
 	}
-
-	cerr << "writing names memory map file\n";
-	lvv::mmap_write("names_data.mmap", *names_data);
 }
 
