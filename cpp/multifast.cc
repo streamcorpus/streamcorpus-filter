@@ -18,10 +18,10 @@ struct  names_t::names_impl {
 
 		pos_t 	b, e;
 		AC_AUTOMATA_t   *atm;
-		size_t		sz=0;		
+		size_t		sz;		
 		AC_TEXT_t       tmp_text;
 
-			names_impl () { atm = ac_automata_init (); };
+			names_impl () : sz(0) { atm = ac_automata_init (); };
 		       ~names_impl () { ac_automata_release (atm); }
 		void    post_ctor  () { ac_automata_finalize (atm); };
 		void    print      () { ac_automata_display(atm,'s'); };
