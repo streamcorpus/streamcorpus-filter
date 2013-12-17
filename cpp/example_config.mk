@@ -11,13 +11,13 @@ N	?= 10
 I	?= 20
 
 # Path to streamcorpus source repo.
-STREAMCORPUS = streamcorpus
+STREAMCORPUS := streamcorpus
 
 # Path to multifast source repo.
-MULTIFAST = multifast
+MULTIFAST := multifast
 
 # Path to names file
-NAMES = data/names.scf
+NAMES := data/names.scf
 
 # Command which sends items text to stdout
 CORPUS := data/corpus.lz4
@@ -26,11 +26,11 @@ CAT_CORPUS_TO_STDOUT ?= lz4c -dc  $(CORPUS)
 
 # Path to saved output from filter
 #OUTPUT = /tmp/filtered.sc
-OUTPUT = /dev/null
+OUTPUT := /dev/null
 
 # optional: command which turns off powersaving (needed for benchmarking)
 #POWER_SAVING_OFF = su -c 'cpufreq-set -c0 -g performance'; su -c 'cpufreq-set -c1 -g performance'
 
 # OS Time command
-TIME = /usr/bin/time
+TIME := /usr/bin/time
 
