@@ -1,7 +1,7 @@
 streamcorpus filter
 ===================
 
-Before running test, copy "example_config.mk" to "config.mk" and change  config
+Before running test, optionally copy "example_config.mk" to "config.mk" and change  config
 variables if necessary.  Editing config.mk is now optional, as all data and
 libraries are auto-downloaded and auto-build starting with P2. 
 
@@ -37,7 +37,7 @@ something, use CHECK macro:
 	CHECK(result==expected_value);
 
 
-Thrift-free benchmarks
+Thrift-free benchmarks 
 ----------------------
 
 This benchmarks was done as run-one-time, just to fund out where bottleneck
