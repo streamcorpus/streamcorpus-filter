@@ -107,50 +107,53 @@ int main(int argc, char **argv) {
 	
 	auto start = chrono::high_resolution_clock ::now();
 
-	int scf_fh = open(filtername_path.c_str(), O_RDONLY);
+	#ifdef MMAP_NAMES
+	#else
+		int scf_fh = open(filtername_path.c_str(), O_RDONLY);
 
-					if(scf_fh==-1)  {
-						cerr << "error: cann't open scf file -- '" << filtername_path << "'\n";
-						exit(1);
-					}
+						if(scf_fh==-1)  {
+							cerr << "error: cann't open scf file -- '" << filtername_path << "'\n";
+							exit(1);
+						}
 
 
-	boost::shared_ptr<att::TFDTransport>		innerTransportScf(new att::TFDTransport(scf_fh));
-	boost::shared_ptr<att::TBufferedTransport>	transportScf(new att::TBufferedTransport(innerTransportScf));
-	boost::shared_ptr<atp::TBinaryProtocol>		protocolScf(new atp::TBinaryProtocol(transportScf));
-	transportScf->open();
-	
-	fn::FilterNames filter_names;
-	filter_names.read(protocolScf.get());
-	names_t  names;
+		boost::shared_ptr<att::TFDTransport>		innerTransportScf(new att::TFDTransport(scf_fh));
+		boost::shared_ptr<att::TBufferedTransport>	transportScf(new att::TBufferedTransport(innerTransportScf));
+		boost::shared_ptr<atp::TBinaryProtocol>		protocolScf(new atp::TBinaryProtocol(transportScf));
+		transportScf->open();
+		
+		fn::FilterNames filter_names;
+		filter_names.read(protocolScf.get());
+		names_t  names;
 
-							//filter_names.name_to_target_ids["John Smith"] = vector<string>();
+								//filter_names.name_to_target_ids["John Smith"] = vector<string>();
 
-	unordered_map<string, set<string>> target_text_map;
+		unordered_map<string, set<string>> target_text_map;
 
-	
-	#ifdef LVV
-		// a hack to release some memory
-		filter_names.target_id_to_names = std::map<std::string, std::vector<std::string>>();
+		
+		#ifdef LVV
+			// a hack to release some memory
+			filter_names.target_id_to_names = std::map<std::string, std::vector<std::string>>();
+		#endif
+
+		size_t name_min=9999999999;
+		size_t name_max=0;
+		size_t total_name_length=0;
+	      
+		for(auto& pr : filter_names.name_to_target_ids) {
+			if ((long)names.size() >= max_names) break;
+			auto p  = pr.first.data();
+			auto sz = pr.first.size();
+			names.insert(p , p+sz);
+
+			// names stats
+			name_min = std::min(name_min,sz);
+			name_max = std::max(name_max,sz);
+			total_name_length += sz;
+		}
+		names.post_ctor();
+		transportScf->close();
 	#endif
-
-	size_t name_min=9999999999;
-	size_t name_max=0;
-	size_t total_name_length=0;
-      
-	for(auto& pr : filter_names.name_to_target_ids) {
-		if ((long)names.size() >= max_names) break;
-		auto p  = pr.first.data();
-		auto sz = pr.first.size();
-		names.insert(p , p+sz);
-
-		// names stats
-		name_min = std::min(name_min,sz);
-		name_max = std::max(name_max,sz);
-		total_name_length += sz;
-	}
-	names.post_ctor();
-	transportScf->close();
 
 	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
