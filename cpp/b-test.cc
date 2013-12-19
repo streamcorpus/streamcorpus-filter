@@ -1,3 +1,5 @@
+// Test search algorithms speed without thrift
+
 #include "lvvlib/mmap.h"
 #include "search.h"
 

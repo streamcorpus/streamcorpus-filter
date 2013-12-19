@@ -7,11 +7,6 @@ NAMES_URL  := http://aws-publicdatasets.s3.amazonaws.com/trec/kba/wlc/mention-du
 MULTIFAST_REPO    := svn://svn.code.sf.net/p/multifast/code/trunk
 STREAMCORPUS_REPO := http://github.com/trec-kba/streamcorpus
 
-# benchmarking parameters:  search-library;  max names to use;  max items to use
-LINK    ?= multifast
-N	?= 10
-I	?= 20
-
 # Path to streamcorpus source repo.
 STREAMCORPUS := streamcorpus
 
@@ -39,6 +34,11 @@ TIME = /usr/bin/time
 ifneq ($(wildcard config.mk),)
 include config.mk
 endif
+
+# benchmarking parameters:  search-library;  max names to use;  max items to use
+LINK    ?= multifast
+N	?= 500000
+I	?= 900
 
 
 ###########################################  HELP
@@ -228,16 +228,21 @@ gprof:
 
 run:  $(LINK)-filter | $(DATA)
 	@$(POWER_SAVING_OFF)
-	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./$(LINK)-filter -N $(N) -f $(NAMES) -I $(I) > $(OUTPUT)
+	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./$(LINK)-filter -N $(N) -f $(NAMES) -I $(I) --verbose $(RUNFLAGS) > $(OUTPUT)
 
 ###########################################  TEST_THROUGHPUT_SPEED
 
-tts: test_throughput_speed
+test_throughput_speed:      $(filternames_thrift_o)
+test_throughput_speed.o:    filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
+
+tts: test_throughput_speed  | $(DATA)
 	$(TIME) ./test_throughput_speed streamcorpus/test-data/john-smith-tagged-by-lingpipe-0-v0_3_0.sc  /tmp/tts.out
 
 ###########################################  MMAP Benchmarks
+
 B-multifast:  b-multifast
 	$(TIME) ./b-multifast
+
 #########################################  
 
 vsearch.o : search.h

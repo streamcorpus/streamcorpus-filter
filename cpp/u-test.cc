@@ -1,3 +1,5 @@
+// Search algo unit tests
+
 #include "check.h"
 #include "search.h"
 
