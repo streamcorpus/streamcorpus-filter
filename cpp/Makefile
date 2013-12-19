@@ -232,7 +232,8 @@ run:  $(LINK)-filter | $(DATA)
 
 ###########################################  TEST_THROUGHPUT_SPEED
 
-test_throughput_speed:      	$(filternames_thrift_o)
+test_throughput_speed:      $(filternames_thrift_o)
+test_throughput_speed.o:    filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
 tts: test_throughput_speed  | $(DATA)
 	$(TIME) ./test_throughput_speed streamcorpus/test-data/john-smith-tagged-by-lingpipe-0-v0_3_0.sc  /tmp/tts.out
