@@ -232,7 +232,9 @@ run:  $(LINK)-filter | $(DATA)
 
 ###########################################  TEST_THROUGHPUT_SPEED
 
-tts: test_throughput_speed
+test_throughput_speed:      	$(filternames_thrift_o)
+
+tts: test_throughput_speed  | $(DATA)
 	$(TIME) ./test_throughput_speed streamcorpus/test-data/john-smith-tagged-by-lingpipe-0-v0_3_0.sc  /tmp/tts.out
 
 ###########################################  MMAP Benchmarks
