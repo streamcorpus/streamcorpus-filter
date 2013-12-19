@@ -236,8 +236,10 @@ tts: test_throughput_speed
 	$(TIME) ./test_throughput_speed streamcorpus/test-data/john-smith-tagged-by-lingpipe-0-v0_3_0.sc  /tmp/tts.out
 
 ###########################################  MMAP Benchmarks
+
 B-multifast:  b-multifast
 	$(TIME) ./b-multifast
+
 #########################################  
 
 vsearch.o : search.h

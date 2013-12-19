@@ -1,3 +1,5 @@
+// converts scf names into mmap file
+//
 
 #include "search.h"
 #include "mmap.h"
