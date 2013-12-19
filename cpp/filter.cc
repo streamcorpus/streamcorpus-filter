@@ -63,16 +63,20 @@ int main(int argc, char **argv) {
 	bool		negate		= false;
 	long		max_names	= numeric_limits<long>::max();
 	long		max_items	= numeric_limits<long>::max();
+	bool		verbose		= false;
+	bool		no_search	= false;
 
 	po::options_description desc("Allowed options");
 
 	desc.add_options()
-		("help,h", "help message")
-		("text_source,t", po::value<string>(&text_source), "text source in stream item")
-		("negate,n", po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
+		("help,h",                                          "help message")
+		("text_source,t", po::value<string>(&text_source),  "text source in stream item")
+		("negate,n",	po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
 		("filternames,f", po::value<string>(&filtername_path), "filternames file")
 		("max-names,N", po::value<long>(&max_names), "maximum number of names to use")
 		("max-items,I", po::value<long>(&max_items), "maximum number of items to process")
+		("verbose",	"perfomance metrics every 100 items")
+		("no-search",	"do not search - pass through every item")
 	;
 	
 	// Parse command line options
@@ -84,6 +88,8 @@ int main(int argc, char **argv) {
 		cout << desc << "\n";
 		return 1;
 	}
+	if (vm.count("verbose"))	verbose=true;
+	if (vm.count("no-search"))	no_search=true;
 
 	
 	////////////////////////////////////////////////////////////// BUILD/CPU ID
@@ -108,6 +114,7 @@ int main(int argc, char **argv) {
 	auto start = chrono::high_resolution_clock ::now();
 
 	#ifdef MMAP_NAMES
+		// to implement
 	#else
 		int scf_fh = open(filtername_path.c_str(), O_RDONLY);
 
@@ -116,10 +123,9 @@ int main(int argc, char **argv) {
 							exit(1);
 						}
 
-
-		boost::shared_ptr<att::TFDTransport>		innerTransportScf(new att::TFDTransport(scf_fh));
-		boost::shared_ptr<att::TBufferedTransport>	transportScf(new att::TBufferedTransport(innerTransportScf));
-		boost::shared_ptr<atp::TBinaryProtocol>		protocolScf(new atp::TBinaryProtocol(transportScf));
+		boost::shared_ptr<att::TFDTransport>		innerTransportScf (new att::TFDTransport(scf_fh));
+		boost::shared_ptr<att::TBufferedTransport>	transportScf      (new att::TBufferedTransport(innerTransportScf));
+		boost::shared_ptr<atp::TBinaryProtocol>		protocolScf       (new atp::TBinaryProtocol(transportScf));
 		transportScf->open();
 		
 		fn::FilterNames filter_names;
@@ -223,10 +229,24 @@ int main(int argc, char **argv) {
 	clog << "Reading stream item content from : " << text_source << endl;
 	#endif
 	
+	auto start100 = chrono::high_resolution_clock ::now();
+
 	while (true) {
 		try {
  	    		//------------------------------------------------------------------   get item content
 	    		stream_item.read(protocolInput.get());
+
+			if (verbose   &&   stream_items_count % 100 == 0  &&  stream_items_count) {
+				auto diff  = chrono::high_resolution_clock ::now() - start100;
+				double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count()/1e9;
+
+				cerr	<< "-- item: " << stream_items_count 
+					<< "   \tavg time per item: "  << sec/100 << " sec"
+					<< "   \titems/sec: "  << 100 / sec << endl;
+
+				start100 = chrono::high_resolution_clock ::now();
+			}
+
 		       
 	    		string content;
 	    		string actual_text_source = text_source;
@@ -262,52 +282,76 @@ int main(int argc, char **argv) {
 			pos_t		p          	= b;
 			pos_t		match_b, match_e;
 
-			names.set_content(p, e);
-
-			while (names.find_next(match_b, match_e)) {
-			
-				// found
-				#ifdef DEBUG
-				clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
-				clog << "   pos:" << match_b-b << " \t" << std::string(match_b, match_e) << "\n";
-				#endif
-			
-			
-				// mapping between canonical form of target and text actually found in document
-			
-				// For each of the current matches, add a label to the 
-				// list of labels.  A label records the character 
-				// positions of the match.
-				matches++;
+			if (no_search) {
+					matches++;
+					sc::Target target;
+					target.target_id = "1";
 				
-				// Add the target identified to the label.  Note this 
-				// should be identical to what is in the rating 
-				// data we add later.
-				sc::Target target;
-				target.target_id = "1";
-			
-				sc::Label label;
-				label.target = target;
-			
-				// Add the actual offsets 
-				sc::Offset offset;
-				offset.type = sc::OffsetType::CHARS;
+					sc::Label label;
+					label.target = target;
 				
-				offset.first = match_b - b;
-				offset.length = match_e - match_b;
-				offset.content_form = std::string(match_b, match_e);
-			
-				label.offsets[sc::OffsetType::CHARS] = offset;
-				label.__isset.offsets = true;
-			
-				// Add new label to the list of labels.
-				stream_item.body.labels[annotatorID].push_back(label);
-			
-				// Map of actual text mapped 
-				target_text_map[target.target_id].insert(std::string(match_b, match_e));
+					sc::Offset offset;
+					offset.type = sc::OffsetType::CHARS;
+					
+					offset.first = 0;
+					offset.length = 1;
+					offset.content_form = std::string(b,b+1);
+				
+					label.offsets[sc::OffsetType::CHARS] = offset;
+					label.__isset.offsets = true;
+				
+					stream_item.body.labels[annotatorID].push_back(label);
+				
+					target_text_map[target.target_id].insert(std::string(b, b+1));
 
-				// advance pos to begining of unsearched content
-				p = match_e;
+			} else {
+				names.set_content(p, e);
+
+				while (names.find_next(match_b, match_e)) {
+				
+					// found
+					#ifdef DEBUG
+					clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
+					clog << "   pos:" << match_b-b << " \t" << std::string(match_b, match_e) << "\n";
+					#endif
+				
+				
+					// mapping between canonical form of target and text actually found in document
+				
+					// For each of the current matches, add a label to the 
+					// list of labels.  A label records the character 
+					// positions of the match.
+					matches++;
+					
+					// Add the target identified to the label.  Note this 
+					// should be identical to what is in the rating 
+					// data we add later.
+					sc::Target target;
+					target.target_id = "1";
+				
+					sc::Label label;
+					label.target = target;
+				
+					// Add the actual offsets 
+					sc::Offset offset;
+					offset.type = sc::OffsetType::CHARS;
+					
+					offset.first = match_b - b;
+					offset.length = match_e - match_b;
+					offset.content_form = std::string(match_b, match_e);
+				
+					label.offsets[sc::OffsetType::CHARS] = offset;
+					label.__isset.offsets = true;
+				
+					// Add new label to the list of labels.
+					stream_item.body.labels[annotatorID].push_back(label);
+				
+					// Map of actual text mapped 
+					target_text_map[target.target_id].insert(std::string(match_b, match_e));
+
+					// advance pos to begining of unsearched content
+					p = match_e;
+				}
 			}
 	    		
 	    		//------------------------------------------------------------------   sc processing
@@ -351,9 +395,8 @@ int main(int argc, char **argv) {
 	    			written++;
 	    		}
 	    		
-	    		// Increment count of stream items processed
 	    		stream_items_count++;
-			cerr << "item: " << stream_items_count << '\r';
+
 			if (stream_items_count >= max_items)  throw att::TTransportException();
 	    	}
 
@@ -393,4 +436,3 @@ int main(int argc, char **argv) {
 	}
 
 }
-
