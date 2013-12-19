@@ -61,13 +61,27 @@ int main(int argc, char **argv) {
 
 	//////////////////////////////////////////////////////////////////////////////////  DE-SERIALIZATION 
 	auto                 start         = chrono::high_resolution_clock ::now();
+	auto 		     start100      = chrono::high_resolution_clock ::now();
 	sc::StreamItem       stream_item;
 	list<sc::StreamItem> test_objects;
 	
 	
+
 	for (long item_count=0;   item_count < max_items;   ++item_count) {
 		try { stream_item.read(protocolInput.get()); }
 		catch (...) { break; }
+
+			if (item_count % 100 == 0  &&  item_count) {
+				auto diff  = chrono::high_resolution_clock ::now() - start100;
+				double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count()/1e9;
+
+				cerr	<< "-- item read: " << item_count 
+					<< "   \tavg time per item: "  << sec/100 << " sec"
+					<< "   \titems/sec: "  << 100 / sec << endl;
+
+				start100 = chrono::high_resolution_clock ::now();
+			}
+
 		test_objects.push_back(stream_item);
 	}
 
@@ -83,12 +97,23 @@ int main(int argc, char **argv) {
 
 	///////////////////////////////////////////////////////////////////////////////  SERIALIZATION 
 		       
-	start = chrono::high_resolution_clock ::now();
+	start     = chrono::high_resolution_clock ::now();
+	start100  = chrono::high_resolution_clock ::now();
 	size_t write_count = 0;
 	    		
 	for (auto& object : test_objects) {
 		try { object.write(protocolOutput.get()); }
 		catch (...) { break; }
+		if (write_count % 100 == 0  &&  write_count) {
+			auto diff  = chrono::high_resolution_clock ::now() - start100;
+			double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count()/1e9;
+
+			cerr	<< "-- items written: " << write_count 
+				<< "   \tavg time per item: "  << sec/100 << " sec"
+				<< "   \titems/sec: "  << 100 / sec << endl;
+
+			start100 = chrono::high_resolution_clock ::now();
+		}
 		++write_count;
 	}
 	transportOutput->flush();
