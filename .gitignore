@@ -53,5 +53,6 @@ cpp/b-vsearch
 cpp/dump
 cpp/note
 cpp/mk_mmap_names
+cpp/test_throughput_speed
 
 

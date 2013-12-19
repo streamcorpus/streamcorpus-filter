@@ -182,9 +182,9 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 
 ########################################### BUILD FILTER
 
-%-filter mk_mmap_names:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-%-filter mk_mmap_names:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
-%-filter mk_mmap_names:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
+%-filter mk_mmap_names tts:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+%-filter mk_mmap_names tts:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
+%-filter mk_mmap_names tts:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
 $(filternames_thrift_o): filternames_types.h
 filter.o mk_mmap_names.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
@@ -208,7 +208,7 @@ names_data.mmap:  mk_mmap_names | $(DATA)
 
 ##########################################  MISC
 clean:
-	$(RM)  *.o filter *-filter  $(output) $(filtername_thrift_cpp) *.gch [tu]-search mk_mmap_names
+	$(RM)  *.o filter *-filter  $(output) $(filtername_thrift_cpp) *.gch [tu]-search mk_mmap_names test_throughput_speed
 	$(RM)  gmon.out  *.prof  *.prof.png
 	$(RM)  ?-multifast ?-multifast ?-naive ?-vsearch
 
@@ -229,6 +229,11 @@ gprof:
 run:  $(LINK)-filter | $(DATA)
 	@$(POWER_SAVING_OFF)
 	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./$(LINK)-filter -N $(N) -f $(NAMES) -I $(I) > $(OUTPUT)
+
+###########################################  TEST_THROUGHPUT_SPEED
+
+tts: test_throughput_speed
+	$(TIME) ./test_throughput_speed streamcorpus/test-data/john-smith-tagged-by-lingpipe-0-v0_3_0.sc  /tmp/tts.out
 
 ###########################################  MMAP Benchmarks
 B-multifast:  b-multifast
