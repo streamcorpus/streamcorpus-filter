@@ -24,33 +24,22 @@ py/src/streamcorpus_filters/constants.py
 py/src/streamcorpus_filters/ttypes.py
 
 # C++
-cpp/u-multisearch_naive
-cpp/build
-cpp/filter
-cpp/ac-filter
-cpp/multifast-filter
-cpp/naive-filter
 cpp/config.mk
 cpp/filternames_constants.cpp
 cpp/filternames_constants.h
 cpp/filternames_types.cpp
 cpp/filternames_types.h
-cpp/u-multifast
-cpp/u-naive
+cpp/*-multifast
+cpp/*-naive
+cpp/*-vsearch
 *.gch
 cpp/data
 cpp/streamcorpus
 cpp/multifast
-cpp/*-vsearch
 cpp/*.gprof*
 cpp/pro*
 cpp/log*
-cpp/mmap.h
 cpp/*.mmap
-cpp/b-multifast
-cpp/b-naive
-cpp/b-vsearch
-cpp/dump
 cpp/note
 cpp/mk_mmap_names
 cpp/test_throughput_speed

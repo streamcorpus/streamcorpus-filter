@@ -30,7 +30,7 @@ OUTPUT := /dev/null
 # optional: command which turns off powersaving (needed for benchmarking)
 #POWER_SAVING_OFF = su -c 'cpufreq-set -c0 -g performance'; su -c 'cpufreq-set -c1 -g performance'
 
-# OS Time command
+# time(1) command
 TIME = /usr/bin/time
 
 # read config file if any
@@ -109,43 +109,40 @@ filternames_thrift_o = \
 $(filtername_thrift_cpp): filternames.thrift
 	thrift  --out . --gen cpp  filternames.thrift
 
-###########################################  UNIT TESTS
-
+###########################################  PRIFIX-LIB COMBOS
 
 ##  naive  ----------
 
-%-naive:   	%.o  naive.o
+%-naive:   %.o naive.o $(DEPS)
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
-##  vsearch  ----------
+##  %-vsearch  ----------
 
 %-vsearch:  %.o  vsearch.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
-##  multifast  -----
+##  %-multifast  -----
 
-multifast.o:                  $(MULTIFAST)/ahocorasick/build/libahocorasick.a
-multifast.o:                  CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
-%multifast multifast-%:       LDFLAGS  += -L $(MULTIFAST)/ahocorasick/build/
-%multifast multifast-%:       LDLIBS   += -l ahocorasick
-
+multifast.o:       $(MULTIFAST)/ahocorasick/build/libahocorasick.a
+multifast.o:       CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
+%-multifast:       LDFLAGS  += -L $(MULTIFAST)/ahocorasick/build/
+%-multifast:       LDLIBS   += -l ahocorasick
 
 %-multifast:   %.o  multifast.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
+## filter 
+filter-%:   LDLIBS += $(filternames_thrift_o)
+filter.o:             $(filternames_thrift_o)
 
-##  test  ----------
+
+## all 
 
 unit.o:  unit.cc search.h
 bench.o:  bench.cc search.h
-
-
-test:    $(LIBS) unit-naive unit-multifast
-	./unit-naive
-	./unit-multifast
-
+filter.o:  filter.cc search.h
 
 ##########################################  DATA & EXTERNAL LIBS
 
@@ -180,18 +177,14 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 	#cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  make  MAKE_VERBOSE=1 -B;  ls libstreamcorpus.a
 
 
-########################################### BUILD FILTER
+########################################### LIBS
 
-filter-% mk_mmap_names tts:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-filter-% mk_mmap_names tts:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
-filter-% mk_mmap_names tts:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
+filter-%  mk_mmap_names  tts:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+filter-%  mk_mmap_names  tts:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
+filter-%  mk_mmap_names  tts:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
-$(filternames_thrift_o): filternames_types.h
-filter.o mk_mmap_names.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
-
-
-filter-%:   filter.o $(filternames_thrift_o)  %.o
-	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
+$(filternames_thrift_o):   filternames_types.h
+filter.o mk_mmap_names.o:  filternames_types.h  $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
 
 ###########################################  make names mmap
@@ -209,21 +202,27 @@ names_data.mmap:  mk_mmap_names | $(DATA)
 
 ##########################################  MISC
 clean:
-	$(RM)  *.o filter filter-*  $(output) $(filtername_thrift_cpp) *.gch [tu]-search mk_mmap_names test_throughput_speed
+	$(RM)  *.o  $(filtername_thrift_cpp) *.gch  mk_mmap_names test_throughput_speed
 	$(RM)  gmon.out  *.prof  *.prof.png
-	$(RM)  ?-multifast ?-multifast ?-naive ?-vsearch
+	$(RM)  *-multifast *-naive *-vsearch
 
 libclean:  clean
-	make -C $(STREAMCORPUS)/cpp/      clean
-	make -C $(MULTIFAST)/ahocorasick/ clean
-	#$(RM)  $(MULTIFAST)/ahocorasick/build/libahocorasick.a $(STREAMCORPUS)/cpp/libstreamcorpus.a 
+	-make -C $(STREAMCORPUS)/cpp/      clean
+	-make -C $(MULTIFAST)/ahocorasick/ clean
 
 gprof:
 	gprof $(exe) > $(exe).gprof
 	cat $(exe).gprof  |  gprof2dot -s -n 0 -e 0 | dot -Tpng -o $(exe).gprof.png;
 	eog $(exe).gprof.png
 
-###########################################  Benchmarks
+##########################################
+
+test:    $(LIBS) unit-naive unit-multifast
+	./unit-naive
+	./unit-multifast
+
+
+###########################################  BENCHMARKS
 
 #RUN:	MODE := OPTIMIZE
 
@@ -243,11 +242,4 @@ TTS: test_throughput_speed  | $(DATA)
 
 BENCH-multifast:  bench-multifast
 	$(TIME) ./bench-multifast
-
-###########################################
-
-vsearch.o : search.h
-
-unit-vsearch: unit.o vsearch.o
-	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
