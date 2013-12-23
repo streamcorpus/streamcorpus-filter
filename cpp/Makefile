@@ -1,5 +1,6 @@
 
 
+.PHONY: help run test clean test bench
 ######################################  DEFAULT CONFIG
 
 CORPUS_URL := http://aws-publicdatasets.s3.amazonaws.com/trec/kba/trec-kba-2013-rated-chunks-indexed.tar.xz
@@ -51,7 +52,6 @@ help:
 	@echo "	  test -- unit test"
 	@echo "	  clean -- remove computer generated files"
 
-.PHONY: help run test clean 
 
 ############################################  BUILD ID
 _cc := $(CXX)-$(shell $(CXX) -v 2>&1 | sed  -n 's/^.*ersion *\(4[^ ]*\) .*/\1/p')
@@ -114,13 +114,13 @@ $(filtername_thrift_cpp): filternames.thrift
 
 ##  naive  ----------
 
-%-naive:   	%-test.o  naive.o
+%-naive:   	%.o  naive.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
 ##  vsearch  ----------
 
-%-vsearch:  %-test.o  vsearch.o
+%-vsearch:  %.o  vsearch.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
@@ -132,18 +132,19 @@ multifast.o:                  CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
 %multifast multifast-%:       LDLIBS   += -l ahocorasick
 
 
-%-multifast:   %-test.o  multifast.o
+%-multifast:   %.o  multifast.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
 ##  test  ----------
 
-%-test.o:  %-test.cc search.h
+unit.o:  unit.cc search.h
+bench.o:  bench.cc search.h
 
 
-test:    $(LIBS) u-naive u-multifast
-	./u-naive
-	./u-multifast
+test:    $(LIBS) unit-naive unit-multifast
+	./unit-naive
+	./unit-multifast
 
 
 ##########################################  DATA & EXTERNAL LIBS
@@ -181,16 +182,15 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 
 ########################################### BUILD FILTER
 
-%-filter mk_mmap_names tts:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-%-filter mk_mmap_names tts:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
-%-filter mk_mmap_names tts:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
+filter-% mk_mmap_names tts:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+filter-% mk_mmap_names tts:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
+filter-% mk_mmap_names tts:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
 $(filternames_thrift_o): filternames_types.h
 filter.o mk_mmap_names.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
-#%-filter:  filter.o %.o
 
-%-filter:          filter.o		$(filternames_thrift_o)  %.o
+filter-%:   filter.o $(filternames_thrift_o)  %.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 
@@ -209,7 +209,7 @@ names_data.mmap:  mk_mmap_names | $(DATA)
 
 ##########################################  MISC
 clean:
-	$(RM)  *.o filter *-filter  $(output) $(filtername_thrift_cpp) *.gch [tu]-search mk_mmap_names test_throughput_speed
+	$(RM)  *.o filter filter-*  $(output) $(filtername_thrift_cpp) *.gch [tu]-search mk_mmap_names test_throughput_speed
 	$(RM)  gmon.out  *.prof  *.prof.png
 	$(RM)  ?-multifast ?-multifast ?-naive ?-vsearch
 
@@ -227,27 +227,27 @@ gprof:
 
 #RUN:	MODE := OPTIMIZE
 
-run:  $(LINK)-filter | $(DATA)
+run:  filter-$(LINK) | $(DATA)
 	@$(POWER_SAVING_OFF)
-	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./$(LINK)-filter -N $(N) -f $(NAMES) -I $(I) --verbose $(RUNFLAGS) > $(OUTPUT)
+	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(N) -f $(NAMES) -I $(I) --verbose $(RUNFLAGS) > $(OUTPUT)
 
 ###########################################  TEST_THROUGHPUT_SPEED
 
 test_throughput_speed:      $(filternames_thrift_o)
 test_throughput_speed.o:    filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
-tts: test_throughput_speed  | $(DATA)
+TTS: test_throughput_speed  | $(DATA)
 	$(TIME) ./test_throughput_speed streamcorpus/test-data/john-smith-tagged-by-lingpipe-0-v0_3_0.sc  /tmp/tts.out
 
 ###########################################  MMAP Benchmarks
 
-B-multifast:  b-multifast
-	$(TIME) ./b-multifast
+BENCH-multifast:  bench-multifast
+	$(TIME) ./bench-multifast
 
 ###########################################
 
 vsearch.o : search.h
 
-t-vsearch: t-vsearch.o vsearch.o
+unit-vsearch: unit.o vsearch.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
