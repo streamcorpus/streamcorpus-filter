@@ -1,5 +1,6 @@
 
-# read config file if any
+
+######################################  DEFAULT CONFIG
 
 CORPUS_URL := http://aws-publicdatasets.s3.amazonaws.com/trec/kba/trec-kba-2013-rated-chunks-indexed.tar.xz
 NAMES_URL  := http://aws-publicdatasets.s3.amazonaws.com/trec/kba/wlc/mention-dump.scf.gz
@@ -31,6 +32,7 @@ OUTPUT := /dev/null
 # OS Time command
 TIME = /usr/bin/time
 
+# read config file if any
 ifneq ($(wildcard config.mk),)
 include config.mk
 endif
@@ -51,7 +53,7 @@ help:
 
 .PHONY: help run test clean 
 
-################################################################################  BUILD ID
+############################################  BUILD ID
 _cc := $(CXX)-$(shell $(CXX) -v 2>&1 | sed  -n 's/^.*ersion *\(4[^ ]*\) .*/\1/p')
 #_date := $(shell date +'%y%m%d_%H%M%S')
 _rev :=$(shell test -d .git && git rev-parse HEAD|sed -n 's/^\(........\).*/\1/p' )
@@ -64,7 +66,7 @@ ID = $(shell echo "$(_rev)-$(_cc)-$(MODE)-$(_cpu)-x$(_cores)@$(_mhz)" | tr -d ' 
 ###########################################  COMPILER FLAGS
 
               MODE ?= OPTIMIZE
-      COMMON_FLAGS += -Wall -DID='"$(LINK)-$(ID)"'
+      COMMON_FLAGS += -Wall -Wno-unused-function -DID='"$(LINK)-$(ID)"'
     OPTIMIZE_FLAGS += -O3 -DNDEBUG -march=native
        DEBUG_FLAGS += -O0 -DDEBUG  -ggdb3 -fstack-protector  # -D_GLIBCXX_DEBUG 
      PROFILE_FLAGS += -O0 -ggdb3 -pg  -fno-omit-frame-pointer -fno-inline-functions -fno-inline-functions-called-once -fno-optimize-sibling-calls -fno-default-inline -fno-inline
@@ -76,15 +78,12 @@ endif
 endif
 
 u-%:           MODE = DEBUG
-u-%:           MODE = DEBUG
+t-%:           MODE = DEBUG
 u-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 t-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 
    export CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) -std=c++0x 
    export   CFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS)
-
-%-filter:  filter.o
-	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 %:  %.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
@@ -189,13 +188,15 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 $(filternames_thrift_o): filternames_types.h
 filter.o mk_mmap_names.o: filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
-naive-filter:          filter.o		$(filternames_thrift_o)  naive.o
-multifast-filter:      filter.o		$(filternames_thrift_o)  multifast.o
-vsearch-filter:        filter.o  	$(filternames_thrift_o)  vsearch.o
+#%-filter:  filter.o %.o
 
-mk_mmap_names:         mk_mmap_names.o		$(filternames_thrift_o)  naive.o
+%-filter:          filter.o		$(filternames_thrift_o)  %.o
+	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
+
 
 ###########################################  make names mmap
+
+mk_mmap_names:         mk_mmap_names.o		$(filternames_thrift_o)  naive.o
 
 count_names:  mk_mmap_names | $(DATA)
 	$(RM) corpus.txt
@@ -243,10 +244,10 @@ tts: test_throughput_speed  | $(DATA)
 B-multifast:  b-multifast
 	$(TIME) ./b-multifast
 
-#########################################  
+###########################################
 
 vsearch.o : search.h
 
 t-vsearch: t-vsearch.o vsearch.o
-t-vsearch: t-vsearch.o vsearch.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
+
