@@ -141,6 +141,6 @@ setup(
     ],
     install_requires=[
         'thrift',
-        'streamcorpus-dev >= 0.3.0',
+        'streamcorpus >= 0.3.0',
     ],
 )
