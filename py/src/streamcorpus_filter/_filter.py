@@ -39,6 +39,7 @@ class Filter(object):
     def __init__(self):
         self.filter_names = None
         self._names = None
+        self.token_boundary_chars = set([' ', '\n', '\s', '\t', '\r'])
 
     def load_filter_names(self, path_to_thrift_message):
         '''reads a FilterNames message from a flat file
@@ -96,8 +97,45 @@ class Filter(object):
         self._names = dict()
         for name in self.filter_names.name_to_target_ids:
             self._names[name.decode('utf8')] = self.filter_names.name_to_target_ids[name]
-            
-    
+
+
+    def register_token_boundary_char(self, char):
+        '''
+        add a unicode character to the set of symbols consider
+        equivalent to "token boundary"
+        '''
+        self.token_boundary_chars.add(char)
+
+                
+    def advance_passed_boundary(self):
+        '''
+        advanced self.text_position passed the current boundary, if
+        possible, and detect if a token boundary was passed.
+        '''
+        start_text_position = self.text_position
+        while self.text_position < len(self.text) and  self.text[self.text_position] in self.token_boundary_chars:
+            self.text_position += 1
+
+        if self.text_position == len(self.text):
+            return False
+        elif start_text_position != self.text_position:
+            ## consumed some characters, so we must have reached a new token
+            return True
+        elif self.text_position == 0:
+            ## special case for start of document
+            return True
+        else:
+            ## have not passed a boundary
+            return False
+
+                
+    def advance_to_boundary(self):
+        '''
+        advanced self.text_position to the next boundary or end of self.text
+        '''
+        while self.text_position < len(self.text) and self.text[self.text_position] not in self.token_boundary_chars:
+            self.text_position += 1
+
     def apply_filters(self, stream_item, content_form='clean_html'):
         '''iterates over the characters in stream_item.body.<content_form>
 looking for strings that exact match keys in
@@ -109,11 +147,51 @@ self.filter_names.name_to_target_ids'''
         annotator = Annotator(annotator_id=annotator_id)
 
         text = getattr(stream_item.body, content_form)
-        text = text.decode('utf8')
-        for i in xrange(len(text)):
-            for name in self._names:
-                if name == text[i:i + len(name)]:
-                    ## found one!!
+
+        ## pass text around by reference as a property on this class instance
+        self.text = text.decode('utf8')
+
+        ## inefficient brute force loop for each name
+        for name in self._names:
+
+            name_tokens = name.split('\\W')
+            name_token_i = 0
+
+            self.text_position = 0
+            first_char_position = None
+
+            while name_tokens and self.text_position < len(self.text):
+
+                #print 'starting', self.text_position, name_token_i, name_tokens
+
+                reached_start_of_new_token = self.advance_passed_boundary()
+
+                if not reached_start_of_new_token:
+                    self.advance_to_boundary()
+                    continue
+            
+                name_tok = name_tokens[name_token_i]
+
+                #print 'on a token', self.text_position, name_token_i, name_tok, self.text[self.text_position:self.text_position + len(name_tok)]
+
+                if name_tok != self.text[self.text_position : self.text_position + len(name_tok)]:
+                    name_token_i = 0
+                    first_char_position = None
+                    self.text_position += 1
+
+                else:
+                    name_token_i += 1
+                    self.text_position += len(name_tok)
+
+                    if  first_char_position is None:
+                        first_char_position = self.text_position
+
+
+                if name_token_i == len(name_tokens):
+                    print 'found one!'
+
+                    ## reset state machine for next possible match in this document
+                    name_token_i = 0
 
                     for target_id in self._names[name]:
 
@@ -123,8 +201,8 @@ self.filter_names.name_to_target_ids'''
                         label  = Label( annotator=annotator, target=target)
                         label.offsets[OffsetType.CHARS] = Offset(
                             type=OffsetType.CHARS,
-                            first=i,
-                            length=len(name))
+                            first=first_char_position,
+                            length=self.text_position)
 
                         if annotator_id not in stream_item.body.labels:
                             stream_item.body.labels[annotator_id] = list()
