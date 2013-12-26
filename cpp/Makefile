@@ -169,7 +169,7 @@ $(MULTIFAST)/ahocorasick/build/libahocorasick.a : $(MULTIFAST)
 	ls   -l  $(MULTIFAST)/ahocorasick/build/libahocorasick.a
 	
 $(STREAMCORPUS):
-	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
+	git clone $(STREAMCORPUS_REPO)
 
 $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 	make -f $(PWD)/streamcorpus.mk  -C  $(STREAMCORPUS)/cpp/  libstreamcorpus.a;
