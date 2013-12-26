@@ -35,7 +35,7 @@ This mention-dump file contains all of the mention-->target_id strings
 observed in the WLC corpus:
 http://aws-publicdatasets.s3.amazonaws.com/trec/kba/wlc/mention-dump.scf.gz
 
-Phase 3:  assess dictionary size issues
+~~Phase 3:  assess dictionary size issues~~
 ----------------------------------------
 
 7. using list of all titles from WP:
@@ -46,7 +46,7 @@ Phase 3:  assess dictionary size issues
 
 8. measure throughput against a large portion of the WLC
 
-Phase 4:  assess speed of deserialize, match, serialize
+~~Phase 4:  assess speed of deserialize, match, serialize~~
 -------------------------------------------------------
 
   DE-SERIALIZATION
@@ -70,7 +70,7 @@ have different transliterations.
 
 For each case, we will need to borrow a limited set of regex syntax:
 
-    http://docs.python.org/2/library/re.html
+ * http://docs.python.org/2/library/re.html
 
 See test set in:
 
