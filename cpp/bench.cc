@@ -64,9 +64,8 @@ int main() {
 	for(size_t ei:  names_data.EI)  {
                 pos_t e = b0+ei;
 		names.insert(b, e); 
-					//cout << i++ << '\t' << (void*)b << '\t' << (void*)e << '\t' << e-b << '\t' << ei << endl; 
 		b=e; 
-		if (++i > max_names) break;
+		if (++i >= max_names) break;
 	} ;
 	names.post_ctor();
 
@@ -95,7 +94,7 @@ int main() {
 	while (names.find_next(match_b, match_e)) {
 	       //cout <<  match_count++ << '\t' << match_b - corpus << "\t("  << S.assign(match_b, match_e) << ")\n";
 	       //cout <<  match_count << '\t' << match_b - corpus << endl;
-	       if (match_e - match_b > 200) {
+	       if (match_e - match_b > 2000) {
 		       cerr << "warning: big match: " << match_e - match_b << "  at: " << match_b - corpus << endl;
 	       }
 	       match_count++;
