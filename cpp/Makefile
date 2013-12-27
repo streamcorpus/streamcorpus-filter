@@ -181,7 +181,7 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 
 ########################################### LIBS
 
-filter-%.o  mk_mmap_names.o  test_throughput_speed.o:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+filter.o    mk_mmap_names.o  test_throughput_speed.o:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
 filter-%    mk_mmap_names    test_throughput_speed:     LDFLAGS  += -L$(STREAMCORPUS)/cpp
 filter-%    mk_mmap_names    test_throughput_speed:     LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
