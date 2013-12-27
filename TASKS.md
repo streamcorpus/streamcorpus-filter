@@ -1,12 +1,13 @@
 ~~DONE: (by bauer1j)~~
 -------
-	1. Harness: discuss with bauer1j and make this work again:
-	   https://github.com/trec-kba/streamcorpus/tree/v0.3.0-dev/examples/cpp
+Harness: discuss with bauer1j and make this work again:
+ * https://github.com/trec-kba/streamcorpus/tree/v0.3.0-dev/examples/cpp
+
 DONE:  updated from John
-	That examples relies on these thrift-generated classes, 
-	   https://github.com/trec-kba/streamcorpus/tree/v0.3.0-dev/cpp
-	which are OUT OF DATE, and need to be regenerated using:
-	   thrift --gen cpp if/streamcorpus-v0_3_0.thrift
+That examples relies on these thrift-generated classes, 
+ * https://github.com/trec-kba/streamcorpus/tree/v0.3.0-dev/cpp
+which are OUT OF DATE, and need to be regenerated using:
+  thrift --gen cpp if/streamcorpus-v0_3_0.thrift
 
 ~~Phase I:  Initial Tests~~
 -----------------------
