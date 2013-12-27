@@ -106,7 +106,7 @@ class PyTest(Command):
         print sys.path
         # use pytest to run tests
         pytest = __import__('pytest')
-        if pytest.main(['-n', '8', '-s', 'src']):
+        if pytest.main(['-n', '3', '-vvs', 'src/tests']):
             sys.exit(1)
 
 setup(
@@ -141,6 +141,6 @@ setup(
     ],
     install_requires=[
         'thrift',
-        'streamcorpus-dev >= 0.3.0',
+        'streamcorpus >= 0.3.0',
     ],
 )
