@@ -181,9 +181,9 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 
 ########################################### LIBS
 
-filter-%  mk_mmap_names  TTS:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-filter-%  mk_mmap_names  TTS:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
-filter-%  mk_mmap_names  TTS:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
+filter-%.o  mk_mmap_names.o  test_throughput_speed.o:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+filter-%    mk_mmap_names    test_throughput_speed:     LDFLAGS  += -L$(STREAMCORPUS)/cpp
+filter-%    mk_mmap_names    test_throughput_speed:     LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
 $(filternames_thrift_o):   filternames_types.h
 filter.o mk_mmap_names.o:  filternames_types.h  $(STREAMCORPUS)/cpp/libstreamcorpus.a 
@@ -235,11 +235,13 @@ run:  filter-$(LINK) | $(DATA)
 ###########################################  TEST_THROUGHPUT_SPEED
 
 test_throughput_speed:      $(filternames_thrift_o)
-test_throughput_speed.o:    filternames_types.h $(STREAMCORPUS)/cpp/libstreamcorpus.a 
+test_throughput_speed.o:    $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
 TTS: test_throughput_speed  | $(DATA)
 	$(TIME) ./test_throughput_speed streamcorpus/test-data/john-smith-tagged-by-lingpipe-0-v0_3_0.sc  /tmp/tts.out
 
+TTS-pv: test_throughput_speed  | $(DATA)
+	$(TIME) ./test_throughput_speed streamcorpus/test-data/john-smith-tagged-by-lingpipe-0-v0_3_0.sc - | pv > /dev/null
 
 ###########################################  MMAP Benchmarks
 
