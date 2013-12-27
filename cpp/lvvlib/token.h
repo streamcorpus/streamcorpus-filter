@@ -1,6 +1,11 @@
+// splits string into tokens
+// part of lvvlib - https://github.com/lvv/lvvlib
+				
 #include<algorithm>
 	using std::find_if;
 	using std::find_if_not;
+
+#include <assert.h>
 							namespace {
 
 typedef  const char*   	pos_t;
@@ -18,9 +23,10 @@ struct  strref  {
 	bool operator==(const std::string& s) const { return  size_t(e-b) == s.size()   &&  std::equal(b,e, s.begin()); };
 };
 
-//std::ostream&   operator<< (std::ostream& os, const strref& s)  {
-//	return os << " (" << std::string(s.b,s.e) << ") ";
-//};
+__attribute__((unused)) 
+std::ostream&   operator<< (std::ostream& os, const strref& s)  {
+	return os << " (" << std::string(s.b,s.e) << ") ";
+};
 
 
 struct  is_t {
@@ -32,8 +38,12 @@ is_t	is;
 
 
 
-pos_t	get_tb(pos_t b, pos_t e)  { return std::find_if_not (b,e, [](char c){ return c==' ' || c=='\t' || c=='\n'; }); };
-pos_t	get_te(pos_t b, pos_t e)  { return std::find_if     (b,e, [](char c){ return c==' ' || c=='\t' || c=='\n'; }); };
+////pos_t	get_tb(pos_t b, pos_t e)  { return std::find_if_not (b,e, [](char c){ return   c==' ' || c=='\t' || c=='\n' ; }); };
+//pos_t	get_tb(pos_t b, pos_t e)  { assert(b<=e); return std::find_if     (b,e, [](char c){ return !(c==' ' || c=='\t' || c=='\n'); }); };
+//pos_t	get_te(pos_t b, pos_t e)  { assert(b<=e); return std::find_if     (b,e, [](char c){ return   c==' ' || c=='\t' || c=='\n' ; }); };
+
+pos_t	get_tb(pos_t b, pos_t e)  { assert(b<=e); return std::find_if     (b,e, [](char c){ return !is.separator[(size_t)c]; }); };
+pos_t	get_te(pos_t b, pos_t e)  { assert(b<=e); return std::find_if     (b,e, [](char c){ return  is.separator[(size_t)c]; }); };
 
 bool	are_equal_token_chains (pos_t b1, pos_t e1, pos_t b2, pos_t e2)  {
 

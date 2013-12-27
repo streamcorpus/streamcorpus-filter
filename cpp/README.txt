@@ -36,6 +36,10 @@ something, use CHECK macro:
 
 	CHECK(result==expected_value);
 
+or, if result is printable:
+
+	CHECK_ARE_EQUAL(result, expected_value);
+
 
 Thrift-free benchmarks 
 ----------------------
@@ -53,5 +57,14 @@ mk_mmap_names.cc, then run:
 
 Edit b-multifast.cc to have exact filenames pathes,  then run benchmarks:
 
-	make B-multifast
+	make BENCH-multifast
 
+
+test_throughput_speed
+---------------------
+
+Measures de-serialization / serialiazation speeds:
+
+To run benchmakrs:
+
+	make TTS

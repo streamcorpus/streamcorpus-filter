@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
 		("filternames,f", po::value<string>(&filtername_path), "filternames file")
 		("max-names,N", po::value<long>(&max_names), "maximum number of names to use")
 		("max-items,I", po::value<long>(&max_items), "maximum number of items to process")
-		("verbose",	"perfomance metrics every 100 items")
+		("verbose",	"performance metrics every 100 items")
 		("no-search",	"do not search - pass through every item")
 	;
 	
