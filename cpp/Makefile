@@ -179,9 +179,9 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 
 ########################################### LIBS
 
-filter-%  mk_mmap_names  TTS:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-filter-%  mk_mmap_names  TTS:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
-filter-%  mk_mmap_names  TTS:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
+filter-%  mk_mmap_names.o  test_throughput_speed.o:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+filter-%  mk_mmap_names    test_throughput_speed:     LDFLAGS  += -L$(STREAMCORPUS)/cpp
+filter-%  mk_mmap_names    test_throughput_speed:     LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
 $(filternames_thrift_o):   filternames_types.h
 filter.o mk_mmap_names.o:  filternames_types.h  $(STREAMCORPUS)/cpp/libstreamcorpus.a 
