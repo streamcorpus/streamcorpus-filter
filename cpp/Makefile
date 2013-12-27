@@ -39,7 +39,7 @@ include config.mk
 endif
 
 # benchmarking parameters:  search-library;  max names to use;  max items to use
-LINK    ?= multifast
+#LINK    ?= multifast
 N	?= 500000
 I	?= 900
 
@@ -56,17 +56,17 @@ help:
 ############################################  BUILD ID
 _cc := $(CXX)-$(shell $(CXX) -v 2>&1 | sed  -n 's/^.*ersion *\(4[^ ]*\) .*/\1/p')
 #_date := $(shell date +'%y%m%d_%H%M%S')
-_rev :=$(shell test -d .git && git rev-parse HEAD|sed -n 's/^\(........\).*/\1/p' )
+_rev := $(shell git rev-parse --git-dir 2> /dev/null 1>/dev/null && git rev-parse HEAD|sed -n 's/^\(......\).*/\1/p' )
 #_cpu=$(shell uname -m -p  |sed 's/Intel(R)//;s/(TM)//;s/@//;s/CPU//;s/ \+/-/g')
-_cpu :=$(shell sed -n '/^model name/!d; s/.*: //; s/(tm) Processor//; s/Intel(R)//; s/(TM)//; s/@//; s/^ //; s/ \+/-/g;p;q' /proc/cpuinfo )
+_cpu := $(shell sed -n '/^model name/!d; s/.*: //; s/(tm) Processor//; s/Intel(R)//; s/(TM)//; s/@//; s/^ //; s/ \+/-/g;p;q' /proc/cpuinfo )
 _cores := $(shell awk '/^processor/{cores=$$3+1}; END{print cores}' /proc/cpuinfo)
-_mhz := $(shell awk '/^cpu MHz/{mhz=$$4}; END{print mhz}' /proc/cpuinfo |sed 's/\.[0-9]\+//')
-ID = $(shell echo "$(_rev)-$(_cc)-$(MODE)-$(_cpu)-x$(_cores)@$(_mhz)" | tr -d ' ')
+_mhz := $(shell awk '/^cpu MHz/{mhz=$$4}; END{print mhz}' /proc/cpuinfo | sed 's/\.[0-9]\+//')
+ID := $(shell echo "$(_rev)-$(_cc)-$(MODE)-$(_cpu)-x$(_cores)@$(_mhz)" | tr -d ' ')
 
 ###########################################  COMPILER FLAGS
 
               MODE ?= OPTIMIZE
-      COMMON_FLAGS += -Wall -Wno-unused-function -DID='"$(LINK)-$(ID)"'
+      COMMON_FLAGS += -Wall -Wno-unused-function -UID -DID='"$(ID)"'
     OPTIMIZE_FLAGS += -O3 -DNDEBUG -march=native
        DEBUG_FLAGS += -O0 -DDEBUG  -ggdb3 -fstack-protector  # -D_GLIBCXX_DEBUG 
      PROFILE_FLAGS += -O0 -ggdb3 -pg  -fno-omit-frame-pointer -fno-inline-functions -fno-inline-functions-called-once -fno-optimize-sibling-calls -fno-default-inline -fno-inline
@@ -77,10 +77,12 @@ ifneq ($(CXX),clang++)
 endif
 endif
 
-u-%:           MODE = DEBUG
-t-%:           MODE = DEBUG
-u-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
-t-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
+unit-%:           MODE = DEBUG
+bench-%:          MODE = OPTIMIZE
+filter-%:         MODE = OPTIMIZE
+
+#unit-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
+#t-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 
    export CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) -std=c++0x 
    export   CFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS)
@@ -169,7 +171,7 @@ $(MULTIFAST)/ahocorasick/build/libahocorasick.a : $(MULTIFAST)
 	ls   -l  $(MULTIFAST)/ahocorasick/build/libahocorasick.a
 	
 $(STREAMCORPUS):
-	git clone $(STREAMCORPUS_REPO)
+	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
 
 $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 	make -f $(PWD)/streamcorpus.mk  -C  $(STREAMCORPUS)/cpp/  libstreamcorpus.a;
@@ -179,9 +181,9 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 
 ########################################### LIBS
 
-filter-%  mk_mmap_names.o  test_throughput_speed.o:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-filter-%  mk_mmap_names    test_throughput_speed:     LDFLAGS  += -L$(STREAMCORPUS)/cpp
-filter-%  mk_mmap_names    test_throughput_speed:     LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
+filter-%  mk_mmap_names  TTS:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+filter-%  mk_mmap_names  TTS:   LDFLAGS  += -L$(STREAMCORPUS)/cpp
+filter-%  mk_mmap_names  TTS:   LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
 $(filternames_thrift_o):   filternames_types.h
 filter.o mk_mmap_names.o:  filternames_types.h  $(STREAMCORPUS)/cpp/libstreamcorpus.a 
@@ -241,6 +243,6 @@ TTS: test_throughput_speed  | $(DATA)
 
 ###########################################  MMAP Benchmarks
 
-BENCH-multifast:  bench-multifast
-	$(TIME) ./bench-multifast
+BENCH-%:  bench-%
+	$(TIME) $<
 
