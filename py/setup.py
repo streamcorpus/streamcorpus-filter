@@ -106,7 +106,7 @@ class PyTest(Command):
         print sys.path
         # use pytest to run tests
         pytest = __import__('pytest')
-        if pytest.main(['-n', '3', '-vvs', 'src/test']):
+        if pytest.main(['-n', '3', '-vvs', 'src/tests']):
             sys.exit(1)
 
 setup(
