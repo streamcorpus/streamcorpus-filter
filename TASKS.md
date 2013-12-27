@@ -128,12 +128,19 @@ Notes from developer of MultiFast:
 Phase 6:  assess multi-core matching
 ------------------------------------
 
- * code cleanup:
+ * phase 6a: design simplest first version
+   - here is a strawman design to discuss:
+     - single thread reads from stdin and populates a queue with StreamItem objects
+     - pool of threads reads from the queue, runs matcher, serializes to
+       a buffer, and obtains mutex on stdout in order to write to stdout
+
+ * phase 6b: code cleanup and refactoring to make multi-threading easier and robust
    - comment headers at the top of all files
    - flatten the "lvvlib" dir or rename
    - detailed inline code comments and self-documenting variable names
    - make it generally beautiful, clean, and tight before embarking on multi-threading
 
- * design & implement multi-core shared memory use of MultiFast
+ * phase 6c: implement simplest first version multi-core shared memory
+   use of MultiFast
+   - speed test on AWS EC2 cc2.8xlarge using 32 cores / 64 GB RAM
 
- * speed test on AWS EC2 cc2.8xlarge using 32 cores / 64 GB RAM
