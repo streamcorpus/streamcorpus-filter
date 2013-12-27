@@ -11,6 +11,7 @@ build: clean
 
 install: build
 	python setup.py install
+	python setup.py install_test
 
 test: install
-	pytest setup.py test
+	python setup.py test
