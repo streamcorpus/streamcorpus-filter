@@ -92,7 +92,7 @@ Phase 5a:  handle whitespace
 
 Phase 5b: handle case insensitivity
 
- - case: "John Smith" might need to be matched as "JOHN SMiTH"
+ - "John Smith" might need to be matched as "JOHN SMiTH" or "John smith"
 
 
 Phase 5c: handle more general character classes
@@ -121,10 +121,15 @@ Notes from developer of MultiFast:
 > handle spaces and case sensitivity it that state. after that block
 > you have string of tokens instead of bytes.
 
-
 Phase 6:  assess multi-core matching
 ------------------------------------
 
-9. design & implement multi-core shared memory use of MultiFast
+ * code cleanup:
+   - comment headers at the top of all files
+   - flatten the "lvvlib" dir or rename
+   - detailed inline code comments and self-documenting variable names
+   - make it generally beautiful, clean, and tight before embarking on multi-threading
 
-10. speed test on AWS EC2 cc2.8xlarge using 32 cores / 64 GB RAM
+ * design & implement multi-core shared memory use of MultiFast
+
+ * speed test on AWS EC2 cc2.8xlarge using 32 cores / 64 GB RAM
