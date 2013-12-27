@@ -217,6 +217,10 @@ gprof:
 	cat $(exe).gprof  |  gprof2dot -s -n 0 -e 0 | dot -Tpng -o $(exe).gprof.png;
 	eog $(exe).gprof.png
 
+update_lvvlib:
+	cp -v ~/p/lvvlib/{check,mmap,token}.h lvvlib/
+
+
 ##########################################
 
 test:    $(LIBS) unit-naive unit-multifast
