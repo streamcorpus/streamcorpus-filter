@@ -79,16 +79,30 @@ struct  names_t::names_impl {
 		
 						#ifdef DEBUG
 						if (matchp->match_num > 1) {
-							clog << "warning: " << matchp->match_num <<  " matches @" << matchp->position << "\n";
+							cerr << "warning: " << matchp->match_num <<  " matches @" << matchp->position << "\n";
 							
 							for (size_t i=0;  i < matchp->match_num; ++i) {
-							    clog << '\t' << i <<  '\t' << matchp->patterns[i].astring;
+							    cerr << '\t' << i <<  '\t'
+							    	 << 	std::string(
+										matchp->patterns[i].astring, 
+										matchp->patterns[i].astring + matchp->patterns[i].length
+							                ) 
+							    		<< endl;
 							}
 							
-							clog << '\n';
+							cerr << '\n';
 						}
 
        						assert(matchp->match_num >= 1);
+						#endif
+
+						#ifdef DISPLAY_MATCH
+					    	cout << "match to name: \t\t(" <<  
+							std::string(
+								matchp->patterns[0].astring, 
+								matchp->patterns[0].astring + matchp->patterns[0].length
+							) 
+							<< ")\n";
 						#endif
 
 		match_e = b + matchp->position;

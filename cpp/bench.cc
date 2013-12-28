@@ -92,12 +92,15 @@ int main() {
 	names.set_content(corpus, corpus+corpus_mem);
 
 	while (names.find_next(match_b, match_e)) {
-	       //cout <<  match_count++ << '\t' << match_b - corpus << "\t("  << S.assign(match_b, match_e) << ")\n";
-	       //cout <<  match_count << '\t' << match_b - corpus << endl;
-	       if (match_e - match_b > 2000) {
+
+	       	#ifdef DISPLAY_MATCH
+	        cout << "with content: " <<  match_b - corpus << "\t("  << S.assign(match_b, match_e) << ")\n\n";
+	        #endif
+			
+	        if (match_e - match_b > 2000) {
 		       cerr << "warning: big match: " << match_e - match_b << "  at: " << match_b - corpus << endl;
-	       }
-	       match_count++;
+	        }
+	        match_count++;
 	}
 
 
