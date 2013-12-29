@@ -84,8 +84,7 @@ filter-%:         MODE = OPTIMIZE
 #unit-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 #t-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 
-   export CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) -std=c++0x 
-   export   CFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS)
+export CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) -std=c++0x 
 
 %:  %.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
@@ -118,12 +117,10 @@ $(filtername_thrift_cpp): filternames.thrift
 %-naive:   %.o naive.o $(DEPS)
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
-
 ##  %-vsearch  ----------
 
 %-vsearch:  %.o  vsearch.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
-
 
 ##  %-multifast  -----
 
@@ -181,15 +178,20 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 
 ########################################### LIBS
 
-filter.o    mk_mmap_names.o  test_throughput_speed.o:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-filter-%    mk_mmap_names    test_throughput_speed:     LDFLAGS  += -L$(STREAMCORPUS)/cpp
-filter-%    mk_mmap_names    test_throughput_speed:     LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
+filter.o    scf2mmap.o  test_throughput_speed.o:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+filter-%    scf2mmap    test_throughput_speed:     LDFLAGS  += -L$(STREAMCORPUS)/cpp
+filter-%    scf2mmap    test_throughput_speed:     LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
 $(filternames_thrift_o):   filternames_types.h
-filter.o mk_mmap_names.o:  filternames_types.h  $(STREAMCORPUS)/cpp/libstreamcorpus.a 
+filter.o scf2mmap.o:  filternames_types.h  $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
 
 ###########################################  make names mmap
+
+scf2mmap:         scf2mmap.o		$(filternames_thrift_o) 
+
+names.mmap: scf2mmap
+	scf2mmap -f $(NAMES)
 
 mk_mmap_names:         mk_mmap_names.o		$(filternames_thrift_o)  naive.o
 
