@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
 	
 	if (vm.count("help")) { cout << desc << "\n"; return 1; }
 	
-	////////////////////////////////////////////////////////////// READ FILTERNAMES
+	////////////////////////////////////////////////////////////// THRIFT READS FILTERNAMES
 
 	int scf_fh = open(filtername_path.c_str(), O_RDONLY);
 
@@ -100,15 +100,16 @@ int main(int argc, char **argv) {
 		filter_names.target_id_to_names = std::map<std::string, std::vector<std::string>>();
 	#endif
 
-	vector<char>	names;
+	////////////////////////////////////////////////////////////////////////////////// FILTER AND ADD TO NAMES
+	
+	vector<char>	names_data;
 	vector<char>	name;
-	vector<size_t>	names_ends{0};		// names_ends[i+1] is pos in names, which is end of i-name
+	vector<size_t>	names_begin{0};		// names_begin[0] starts at pos 0
 
 	size_t name_min=9999999999;
 	size_t name_max=0;
 	size_t good_names = 0; 	  
 	
-	size_t i = 0; 				// index in names_ends 
 	set<vector<char>> uniq_set;
 	long total_tokens = 0;
 
@@ -150,19 +151,16 @@ int main(int argc, char **argv) {
 
 		uniq_set.insert(name);
 						#ifdef DISPLAY_NAMES
-						cout << "clean name: \t(" << string(name.begin(), name.end()) << ")\n";
+						cout << "added name: \t(" << string(name.begin(), name.end()) << ")\n";
 						#endif
-
 		// statistics
 		name_min = std::min(name_min, name.size());
 		name_max = std::max(name_max, name.size());
 		total_tokens += tokens;
 
-		// append name to names
-		names_ends.push_back(names.size());
-		copy (name.begin(), name.end(), back_inserter(names));
-
-		++i;
+		// append name to names_data
+		copy (name.begin(), name.end(), back_inserter(names_data));
+		names_begin.push_back(names_data.size());
 	}
 
 	transportScf->close();
@@ -171,16 +169,18 @@ int main(int argc, char **argv) {
 	     << ";\n\t good:       "         << good_names
 	     << ";\n\t min length: "         << name_min
 	     << ";\n\t max length: "         << name_max
-	     << ";\n\t avg length: "         << double(names.size())/(names_ends.size()-1)
-	     << ";\n\t avg tokens: "         << double(total_tokens)/(names_ends.size()-1)
-	     << ";\n\t total names length: " << names.size()
+	     << ";\n\t avg length: "         << double(names_data.size())/(names_begin.size()-1)
+	     << ";\n\t avg tokens: "         << double(total_tokens)/(names_begin.size()-1)
+	     << ";\n\t total names length: " << names_data.size()
 	     << endl;
 
 
+	///////////////////////////////////////////////////////////////////////////////// WRITE MMAP
+       
 	cerr << "writing names memory map file ... ";
 
-	lvv::mmap_write("names.mmap", *names.data(), names.size());
-	lvv::mmap_write("names_ends.mmap", *names_ends.data(), names_ends.size());
+	lvv::mmap_write<char>  ("names_data.mmap",  &names_data[0],  names_data.size());
+	lvv::mmap_write<size_t>("names_begin.mmap", &names_begin[0], names_begin.size());
 
 	cerr << "done\n";
 }

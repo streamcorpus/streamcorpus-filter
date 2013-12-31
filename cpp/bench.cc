@@ -26,63 +26,49 @@
 
 using namespace std;
        
-
-	constexpr size_t names      = 4015601;            // <-----------  change value according to count_names run
-	constexpr size_t names_mem  = 80177319;
-	constexpr size_t corpus_mem = 3117109254;
-
-	constexpr size_t max_names  = names/2;    
-
-template<size_t N=names, size_t TOTAL=names_mem, class T=char>
-struct names_data_t{
-	size_t EI[N];
-	T data[TOTAL];
-
-	const static size_t size=N;
-	const static size_t total_size=TOTAL;
-};
-
+       
 
 int main() {
 
 	cout << ID << endl;
 	auto start = high_resolution_clock::now();
-	string		S(100000,'*');
-	/////////////////////////////////////////////////  NAMES
-	//names_data_t<>&  names_data = lvv::mmap_read<names_data_t<>>("data/names_data_N4446930_T116942447.mmap");
-	names_data_t<>&  names_data = lvv::mmap_read<names_data_t<>>("data/names_data_N4015601_T80177319.mmap");
-	names_t			names;  
 
-	pos_t	b0 = &(names_data.data[0]);     // begining of names pool
-	pos_t	b  = b0;                        // begining of current name
-	size_t	i  = 0;				// index in EI
 
-					cout << "   names: " << (sizeof(names_data.EI) / sizeof(pos_t))
-					     << "   sizeof names: " << sizeof(names_data)
-					     << "   used names: " << max_names  << endl;
+	/////////////////////////////////////////////////  READ NAMES MMAP
 
-	for(size_t ei:  names_data.EI)  {
-                pos_t e = b0+ei;
-		names.insert(b, e); 
-		b=e; 
-		if (++i >= max_names) break;
-	} ;
+	size_t 	names_size;	// number of names (size of names_begin-1)
+	size_t 	names_mem;      // size of names_data;
+	char 	*names_data  = lvv::mmap_read<char>  ("names_data.mmap",  names_mem);
+	size_t	*names_begin = lvv::mmap_read<size_t>("names_begin.mmap", names_size);
+	names_size--;
+
+
+	/////////////////////////////////////////////////  CONSTRUCT NAMES_T 
+
+	names_t		names;  
+
+	for (size_t i=0;  i<names_size;  ++i) {
+						cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
+						<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
+		names.insert(names_data+names_begin[i], names_data+names_begin[i+1]); 
+	}
+
 	names.post_ctor();
 
-	{ ///////////////////////////////////////////////  TIMER
-	auto diff = high_resolution_clock::now() - start;
-	double sec = duration_cast<nanoseconds>(diff).count();
-	clog << "Names: "  << (sizeof(names_data.EI) / sizeof(pos_t))
-	     << ";  used: "        << max_names 
-	     << endl;
 
-	clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
+	///////////////////////////////////////////////  TIMER
+	{
+	auto diff = high_resolution_clock::now() - start;
+	double sec = duration_cast<nanoseconds>(diff).count()/1e9;
+	cerr << "Names: "  	                 << names_size << "\n"; 
+	cerr << "Names construction time: "      << sec        << " sec\n";
 	}
 
 
 	////////////////////////////////////////////////  CONTENT
-	typedef  const char  corpus_t[corpus_mem];
-	corpus_t&  corpus = lvv::mmap_read<corpus_t>("data/corpus_I47233_T3117109254.txt");
+	size_t  corpus_mem;
+	const char  *corpus = lvv::mmap_read<char>("data/corpus.mmap", corpus_mem);
+
 	start = high_resolution_clock::now();
 
 
@@ -91,10 +77,11 @@ int main() {
 						// find all instanses of needle
 	names.set_content(corpus, corpus+corpus_mem);
 
+
 	while (names.find_next(match_b, match_e)) {
 
 	       	#ifdef DISPLAY_MATCH
-	        cout << "with content: " <<  match_b - corpus << "\t("  << S.assign(match_b, match_e) << ")\n\n";
+	        cout << "with content: " <<  match_b - corpus << "\t("  << string(match_b, match_e) << ")\n\n";
 	        #endif
 			
 	        if (match_e - match_b > 2000) {
@@ -104,14 +91,12 @@ int main() {
 	}
 
 
-	{ ///////////////////////////////////////////////  TIMER
+	///////////////////////////////////////////////  TIMER
+	{
 	auto diff = high_resolution_clock::now() - start;
-	double nsec                 = duration_cast<nanoseconds>(diff).count();
-	double search_time          = nsec/1e9;
-	double mb_per_sec           = double(corpus_mem)/1000000 / (nsec/1e9);
-
-	clog << "matches: "          << match_count << endl;
-	clog << "search time: "      << search_time << " sec" << endl;
-	clog << "MB/sec: "           << mb_per_sec << endl;
+	double sec                 = duration_cast<nanoseconds>(diff).count()/1e9;
+	cerr << "matches: "      << match_count  << "\n"
+	     << "search time: "  << sec << " sec\n"
+	     << "MB/sec: "       << corpus_mem/sec/1000000 << "\n";
 	}
 }
