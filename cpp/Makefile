@@ -58,7 +58,7 @@ _cc := $(CXX)-$(shell $(CXX) -v 2>&1 | sed  -n 's/^.*ersion *\(4[^ ]*\) .*/\1/p'
 #_date := $(shell date +'%y%m%d_%H%M%S')
 _rev := $(shell git rev-parse --git-dir 2> /dev/null 1>/dev/null && git rev-parse HEAD|sed -n 's/^\(......\).*/\1/p' )
 #_cpu=$(shell uname -m -p  |sed 's/Intel(R)//;s/(TM)//;s/@//;s/CPU//;s/ \+/-/g')
-_cpu := $(shell sed -n '/^model name/!d; s/.*: //; s/(tm) Processor//; s/Intel(R)//; s/(TM)//; s/@//; s/^ //; s/ \+/-/g;p;q' /proc/cpuinfo )
+_cpu := $(shell sed -n '/^model name/!d; s/.*: //; s/Processor//; s/Intel//; s/(TM)//; s/(R)//g; s/CPU//; s/@//; s/^ //; s/ \+/-/g;p;q' /proc/cpuinfo )
 _cores := $(shell awk '/^processor/{cores=$$3+1}; END{print cores}' /proc/cpuinfo)
 _mhz := $(shell awk '/^cpu MHz/{mhz=$$4}; END{print mhz}' /proc/cpuinfo | sed 's/\.[0-9]\+//')
 ID := $(shell echo "$(_rev)-$(_cc)-$(MODE)-$(_cpu)-x$(_cores)@$(_mhz)" | tr -d ' ')
