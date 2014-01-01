@@ -190,19 +190,9 @@ filter.o scf2mmap.o:  filternames_types.h  $(STREAMCORPUS)/cpp/libstreamcorpus.a
 
 scf2mmap:         scf2mmap.o		$(filternames_thrift_o) 
 
-names_data.mmap: scf2mmap
+data/names_data.mmap: scf2mmap
 	scf2mmap -f $(NAMES)
 
-#mk_mmap_names:         mk_mmap_names.o		$(filternames_thrift_o)  naive.o
-#
-#count_names:  mk_mmap_names | $(DATA)
-#	$(RM) corpus.txt
-#	$(CAT_CORPUS_TO_STDOUT) |  ./mk_mmap_names  -f $(NAMES)  -c
-#
-#names_data.mmap:  mk_mmap_names | $(DATA)
-#	$(RM) corpus.txt
-#	$(CAT_CORPUS_TO_STDOUT) |  ./mk_mmap_names  -f $(NAMES) 
-#	ls -l names_data.mmap 
 
 ##########################################  MISC
 clean:
