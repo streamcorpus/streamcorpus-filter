@@ -87,14 +87,9 @@ int main() {
 
 
 	while (names.find_next(match_b, match_e)) {
-
 	       	#ifdef DISPLAY_MATCH
-	        cout << "with content: " <<  match_b - corpus << "\t("  << string(match_b, match_e) << ")\n\n";
+ 	               cout << "with content: " <<  match_b - corpus << "\t("  << string(match_b, match_e) << ")\n\n";
 	        #endif
-			
-	        if (match_e - match_b > 2000) {
-		       cerr << "warning: big match: " << match_e - match_b << "  at: " << match_b - corpus << endl;
-	        }
 	        match_count++;
 	}
 
