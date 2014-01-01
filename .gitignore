@@ -24,6 +24,7 @@ py/src/streamcorpus_filters/constants.py
 py/src/streamcorpus_filters/ttypes.py
 
 # C++
+cpp/multifast/
 cpp/config.mk
 cpp/filternames_constants.cpp
 cpp/filternames_constants.h
