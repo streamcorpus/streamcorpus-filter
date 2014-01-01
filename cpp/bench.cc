@@ -33,6 +33,13 @@ int main() {
 	cout << ID << endl;
 	auto start = high_resolution_clock::now();
 
+	long		max_names	= 
+		#ifdef N 
+			N
+		#else
+			numeric_limits<long>::max();
+		#endif
+	;
 
 	/////////////////////////////////////////////////  READ NAMES MMAP
 
@@ -48,9 +55,10 @@ int main() {
 	names_t		names;  
 
 	for (size_t i=0;  i<names_size;  ++i) {
-						cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
-						<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
+						//cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
+						//<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
 		names.insert(names_data+names_begin[i], names_data+names_begin[i+1]); 
+		if (i>max_names) break;
 	}
 
 	names.post_ctor();
@@ -61,6 +69,7 @@ int main() {
 	auto diff = high_resolution_clock::now() - start;
 	double sec = duration_cast<nanoseconds>(diff).count()/1e9;
 	cerr << "Names: "  	                 << names_size << "\n"; 
+	cerr << "Names used: "  	         << max_size << "\n"; 
 	cerr << "Names construction time: "      << sec        << " sec\n";
 	}
 
