@@ -20,7 +20,7 @@ NAMES := data/names.scf
 
 # Command which sends items text to stdout
 CORPUS := data/corpus.lz4
-#CAT_CORPUS_TO_STDOUT ?= find $(CORPUS) -type f | head -n $(I) | xargs cat
+#CAT_CORPUS_TO_STDOUT ?= find $(CORPUS) -type f | head -n $(MAX_ITEMS) | xargs cat
 CAT_CORPUS_TO_STDOUT ?= lz4c -dc  $(CORPUS) 
 
 # Path to saved output from filter
@@ -40,8 +40,8 @@ endif
 
 # benchmarking parameters:  search-library;  max names to use;  max items to use
 #LINK    ?= multifast
-N	?= 500000
-I	?= 900
+MAX_NAMES	?= 2000000
+MAX_ITEMS	?= 900
 
 
 ###########################################  HELP
@@ -236,7 +236,7 @@ test:    $(LIBS) unit-naive unit-multifast
 
 run:  filter-$(LINK) | $(DATA)
 	@$(POWER_SAVING_OFF)
-	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(N) -f $(NAMES) -I $(I) --verbose $(RUNFLAGS) > $(OUTPUT)
+	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(MAX_NAMES) -f $(NAMES) -I $(MAX_ITEMS) --verbose $(RUNFLAGS) > $(OUTPUT)
 
 ###########################################  TEST_THROUGHPUT_SPEED
 
@@ -250,6 +250,8 @@ TTS-pv: test_throughput_speed  | $(DATA)
 	$(TIME) ./test_throughput_speed streamcorpus/test-data/john-smith-tagged-by-lingpipe-0-v0_3_0.sc - | pv > /dev/null
 
 ###########################################  MMAP Benchmarks
+
+bench.o: CXXFLAGS+=-DMAX_NAMES=$(MAX_NAMES)
 
 BENCH-%:  bench-%
 	$(TIME) $<

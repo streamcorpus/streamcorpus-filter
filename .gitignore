@@ -35,13 +35,12 @@ cpp/*-vsearch
 *.gch
 cpp/data
 cpp/streamcorpus
-cpp/multifast
 cpp/*.gprof*
 cpp/pro*
 cpp/log*
 cpp/*.mmap
 cpp/note
-cpp/mk_mmap_names
 cpp/test_throughput_speed
+cpp/scf2mmap
 
 

@@ -33,11 +33,11 @@ int main() {
 	cout << ID << endl;
 	auto start = high_resolution_clock::now();
 
-	long		max_names	= 
-		#ifdef N 
-			N
+	size_t		max_names	= 
+		#ifdef  MAX_NAMES 
+			MAX_NAMES
 		#else
-			numeric_limits<long>::max();
+			numeric_limits<size_t>::max();
 		#endif
 	;
 
@@ -54,11 +54,10 @@ int main() {
 
 	names_t		names;  
 
-	for (size_t i=0;  i<names_size;  ++i) {
+	for (size_t i=0;  i< std::min(max_names,names_size);  ++i) {
 						//cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
 						//<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
 		names.insert(names_data+names_begin[i], names_data+names_begin[i+1]); 
-		if (i>max_names) break;
 	}
 
 	names.post_ctor();
@@ -69,7 +68,7 @@ int main() {
 	auto diff = high_resolution_clock::now() - start;
 	double sec = duration_cast<nanoseconds>(diff).count()/1e9;
 	cerr << "Names: "  	                 << names_size << "\n"; 
-	cerr << "Names used: "  	         << max_size << "\n"; 
+	cerr << "Names used: "  	         << max_names << "\n"; 
 	cerr << "Names construction time: "      << sec        << " sec\n";
 	}
 
