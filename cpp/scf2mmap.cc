@@ -182,8 +182,8 @@ int main(int argc, char **argv) {
        
 	cerr << "writing names memory map file ... ";
 
-	lvv::mmap_write<char>  ("data/names_data.mmap",  &names_data[0],  names_data.size());
-	lvv::mmap_write<size_t>("data/names_begin.mmap", &names_begin[0], names_begin.size());
+	mmap_write<char>  ("data/names_data.mmap",  &names_data[0],  names_data.size());
+	mmap_write<size_t>("data/names_begin.mmap", &names_begin[0], names_begin.size());
 
 	cerr << "done\n";
 }

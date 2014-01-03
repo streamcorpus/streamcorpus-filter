@@ -39,7 +39,7 @@ include config.mk
 endif
 
 # benchmarking parameters:  search-library;  max names to use;  max items to use
-#LINK    ?= multifast
+LINK    ?= multifast
 MAX_NAMES	?= 2000000
 MAX_ITEMS	?= 900
 
@@ -226,7 +226,10 @@ test:    $(LIBS) unit-naive unit-multifast
 
 run:  filter-$(LINK) | $(DATA)
 	@$(POWER_SAVING_OFF)
-	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(MAX_NAMES) -f $(NAMES) -I $(MAX_ITEMS) --verbose $(RUNFLAGS) > $(OUTPUT)
+	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(MAX_NAMES)             -I $(MAX_ITEMS)           $(RUNFLAGS) > $(OUTPUT)
+
+#	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(MAX_NAMES) -f $(NAMES) -I $(MAX_ITEMS) --verbose $(RUNFLAGS) > $(OUTPUT)
+
 
 ###########################################  TEST_THROUGHPUT_SPEED
 

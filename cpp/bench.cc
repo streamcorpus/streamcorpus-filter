@@ -45,8 +45,8 @@ int main() {
 
 	size_t 	names_size;	// number of names (size of names_begin-1)
 	size_t 	names_mem;      // size of names_data;
-	char 	*names_data  = lvv::mmap_read<char>  ("data/names_data.mmap",  names_mem);
-	size_t	*names_begin = lvv::mmap_read<size_t>("data/names_begin.mmap", names_size);
+	char 	*names_data  = mmap_read<char>  ("data/names_data.mmap",  names_mem);
+	size_t	*names_begin = mmap_read<size_t>("data/names_begin.mmap", names_size);
 	names_size--;
 
 
@@ -75,7 +75,7 @@ int main() {
 
 	////////////////////////////////////////////////  CONTENT
 	size_t  corpus_mem;
-	const char  *corpus = lvv::mmap_read<char>("data/corpus.mmap", corpus_mem);
+	const char  *corpus = mmap_read<char>("data/corpus.mmap", corpus_mem);
 
 	start = high_resolution_clock::now();
 

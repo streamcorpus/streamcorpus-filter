@@ -18,14 +18,14 @@
 	#include <iostream>
 	#include <stdexcept>
 	using  std::cerr;
-	namespace lvv {
+	namespace {
 
-	struct  no_file: std::exception {};
-	struct  no_free_space: std::exception {};
-	struct  open_error: std::exception {};
-	struct  io_error: std::exception {};
+	struct  no_file:	std::exception {};
+	struct  no_free_space:	std::exception {};
+	struct  open_error:	std::exception {};
+	struct  io_error:	std::exception {};
 
-	// this function is not used directly
+	// this function is not part of user API, do not use it directly
 	template<int SHARING=MAP_PRIVATE>
 void * mmap_read_ptr  (const char *path, size_t& n)   {	
 
@@ -48,7 +48,6 @@ void * mmap_read_ptr  (const char *path, size_t& n)   {
 	n = sb.st_size;
 
 	void *p =  mmap(NULL, n, PROT_READ | PROT_WRITE , SHARING, src_fd, 0);
-	//void *p =  mmap(NULL, sb.st_size , PROT_READ, SHARING, src_fd, 0);
 
 	if  ( p == MAP_FAILED ) {
 		cerr  << "mmap_read error: couldn't mmap  \"" << path << "\"  file\n";
@@ -68,9 +67,9 @@ MMAPED_TYPE&   mmap_read(const char* path)               {
 
 	// read c-array of REC_T[] type
 	template<typename REC_T,       int SHARING=MAP_SHARED>   
-REC_T*         mmap_read(const char* path, size_t& n)    {
+REC_T*  mmap_read(const char* path, size_t& n)    {
 	size_t n_bytes;  
-	auto res =  (REC_T*)       mmap_read_ptr<SHARING>(path, n_bytes);
+	auto res =  (REC_T*)  mmap_read_ptr<SHARING>(path, n_bytes);
 	n = n_bytes/sizeof(REC_T);
 	return res;
  };
@@ -171,4 +170,4 @@ void	mmap_write(const char* path, REC_T* rec, size_t n) {
 	}
  }
 
- } // namespace lvv
+ } // anon namespace

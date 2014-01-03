@@ -46,6 +46,9 @@
 #include <boost/program_options.hpp>
 	namespace po = boost::program_options;
 
+// LVVLIB
+
+#include "lvvlib/mmap.h"
 
 
 int main(int argc, char **argv) {
@@ -57,8 +60,8 @@ int main(int argc, char **argv) {
 	string		names_path	= "names.mmap";
 	string		names_begin_path= "names_begin.mmap";
 	bool		negate		= false;
-	long		max_names	= numeric_limits<long>::max();
-	long		max_items	= numeric_limits<long>::max();
+	size_t		max_names	= numeric_limits<size_t>::max();
+	size_t		max_items	= numeric_limits<size_t>::max();
 	bool		verbose		= false;
 	bool		no_search	= false;
 
@@ -69,8 +72,8 @@ int main(int argc, char **argv) {
 		("text_source,t", po::value<string>(&text_source),  "text source in stream item")
 		("negate,n",	po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
 		//("names-mmap,n", po::value<string>(&names_path), "path to names mmap file (and names_begin")
-		("max-names,N", po::value<long>(&max_names), "maximum number of names to use")
-		("max-items,I", po::value<long>(&max_items), "maximum number of items to process")
+		("max-names,N", po::value<size_t>(&max_names), "maximum number of names to use")
+		("max-items,I", po::value<size_t>(&max_items), "maximum number of items to process")
 		("verbose",	"performance metrics every 100 items")
 		("no-search",	"do not search - pass through every item")
 	;
@@ -109,16 +112,40 @@ int main(int argc, char **argv) {
 	
 	auto start = chrono::high_resolution_clock ::now();
 
-	names_t  names;
-
-
 	unordered_map<string, set<string>> target_text_map;
 
 	size_t name_min=9999999999;
 	size_t name_max=0;
 	size_t total_name_length=0;
       
-	for(auto& pr : filter_names.name_to_target_ids) {	< ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+	/////////////////////////////////////////////////  READ NAMES MMAP
+
+	size_t 	names_size;	// number of names (size of names_begin-1)
+	size_t 	names_mem;      // size of names_data;
+	char 	*names_data  = mmap_read<char>  ("data/names_data.mmap",  names_mem);
+	size_t	*names_begin = mmap_read<size_t>("data/names_begin.mmap", names_size);
+	names_size--;
+
+
+	/////////////////////////////////////////////////  CONSTRUCT NAMES_T 
+
+	names_t		names;  
+
+	for (size_t i=0;  i< std::min(max_names,names_size);  ++i) {
+						//cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
+						//<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
+		names.insert(names_data+names_begin[i], names_data+names_begin[i+1]); 
+
+		// names stats
+		size_t sz =  names_begin[i+1] - names_begin[i];
+		name_min = std::min(name_min,sz);
+		name_max = std::max(name_max,sz);
+		total_name_length += sz;
+	}
+
+	names.post_ctor();
+        /*
+	for(auto& pr : filter_names.name_to_target_ids) { 
 		if ((long)names.size() >= max_names) break;
 		auto p  = pr.first.data();
 		auto sz = pr.first.size();
@@ -131,11 +158,12 @@ int main(int argc, char **argv) {
 	}
 	names.post_ctor();
 	transportScf->close();
+	*/
 
 	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
 	double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
-	clog << "Names: "  << filter_names.name_to_target_ids.size()
+	clog << "Names: "  	   << names_size
 	     << ";  used: "        << names.size()
 	     << ";  min: "         << name_min
 	     << ";  max: "         << name_max
@@ -364,7 +392,7 @@ int main(int argc, char **argv) {
 	    		
 	    		stream_items_count++;
 
-			if (stream_items_count >= max_items)  throw att::TTransportException();
+			if (stream_items_count >= (long)max_items)  throw att::TTransportException();
 	    	}
 
 		//----------------------------------------------------------------------------  items read cycle exit
