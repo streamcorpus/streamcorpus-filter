@@ -45,7 +45,7 @@ int main() {
 
 	size_t 	names_size;	// number of names (size of names_begin-1)
 	size_t 	names_mem;      // size of names_data;
-	char 	*names_data  = mmap_read<char>  ("data/names_data.mmap",  names_mem);
+	char 	*names_data  = mmap_read<char>  ("data/names.mmap",  names_mem);
 	size_t	*names_begin = mmap_read<size_t>("data/names_begin.mmap", names_size);
 	names_size--;
 

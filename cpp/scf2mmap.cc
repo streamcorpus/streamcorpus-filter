@@ -1,6 +1,6 @@
 // Converts filternames.scf names into mmap file
 //
-// There are 2 output names data/names_data.mmap and data/names_begin.mmap
+// There are 2 output names data/names.mmap and data/names_begin.mmap
 // Usage:
 // 	scf2mmap -f path-to-filter-names.scf
 
@@ -182,7 +182,7 @@ int main(int argc, char **argv) {
        
 	cerr << "writing names memory map file ... ";
 
-	mmap_write<char>  ("data/names_data.mmap",  &names_data[0],  names_data.size());
+	mmap_write<char>  ("data/names.mmap",       &names_data[0],  names_data.size());
 	mmap_write<size_t>("data/names_begin.mmap", &names_begin[0], names_begin.size());
 
 	cerr << "done\n";

@@ -190,7 +190,7 @@ filter.o scf2mmap.o:  filternames_types.h  $(STREAMCORPUS)/cpp/libstreamcorpus.a
 
 scf2mmap:         scf2mmap.o		$(filternames_thrift_o) 
 
-data/names_data.mmap: scf2mmap
+data/names.mmap: scf2mmap
 	scf2mmap -f $(NAMES)
 
 
@@ -226,7 +226,7 @@ test:    $(LIBS) unit-naive unit-multifast
 
 run:  filter-$(LINK) | $(DATA)
 	@$(POWER_SAVING_OFF)
-	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(MAX_NAMES)             -I $(MAX_ITEMS)           $(RUNFLAGS) > $(OUTPUT)
+	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(MAX_NAMES)             -I $(MAX_ITEMS) --verbose $(RUNFLAGS) > $(OUTPUT)
 
 #	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(MAX_NAMES) -f $(NAMES) -I $(MAX_ITEMS) --verbose $(RUNFLAGS) > $(OUTPUT)
 

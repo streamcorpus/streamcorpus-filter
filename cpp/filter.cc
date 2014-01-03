@@ -57,8 +57,8 @@ int main(int argc, char **argv) {
 
 	// options
 	string		text_source	= "clean_visible";
-	string		names_path	= "names.mmap";
-	string		names_begin_path= "names_begin.mmap";
+	string		names_path	= "data/names.mmap";	// default location of names mmap
+	string		names_begin_path= ""; 			// default will be "data/names_begin.mmap";
 	bool		negate		= false;
 	size_t		max_names	= numeric_limits<size_t>::max();
 	size_t		max_items	= numeric_limits<size_t>::max();
@@ -71,7 +71,7 @@ int main(int argc, char **argv) {
 		("help,h",                                          "help message")
 		("text_source,t", po::value<string>(&text_source),  "text source in stream item")
 		("negate,n",	po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
-		//("names-mmap,n", po::value<string>(&names_path), "path to names mmap file (and names_begin")
+		("names-mmap,n", po::value<string>(&names_path), "path to names mmap file (and names_begin")
 		("max-names,N", po::value<size_t>(&max_names), "maximum number of names to use")
 		("max-items,I", po::value<size_t>(&max_items), "maximum number of items to process")
 		("verbose",	"performance metrics every 100 items")
@@ -89,6 +89,17 @@ int main(int argc, char **argv) {
 	}
 	if (vm.count("verbose"))	verbose=true;
 	if (vm.count("no-search"))	no_search=true;
+
+
+	// construct names_begin_path
+	size_t ext_pos = names_path.rfind(".mmap");
+	copy(names_path.begin(), names_path.begin()+ext_pos, back_inserter(names_begin_path));
+	names_begin_path.append("_begin.mmap");
+
+	if (verbose) {
+		cerr << "\tnames_path: " << names_path << endl;
+		cerr << "\tnames_begin_path: " << names_begin_path << endl;
+	}
 
 	
 	////////////////////////////////////////////////////////////// BUILD/CPU ID
@@ -122,8 +133,8 @@ int main(int argc, char **argv) {
 
 	size_t 	names_size;	// number of names (size of names_begin-1)
 	size_t 	names_mem;      // size of names_data;
-	char 	*names_data  = mmap_read<char>  ("data/names_data.mmap",  names_mem);
-	size_t	*names_begin = mmap_read<size_t>("data/names_begin.mmap", names_size);
+	char 	*names_data  = mmap_read<char>  (names_path.c_str(),       names_mem);
+	size_t	*names_begin = mmap_read<size_t>(names_begin_path.c_str(), names_size);
 	names_size--;
 
 
