@@ -20,7 +20,7 @@ NAMES := data/names.scf
 
 # Command which sends items text to stdout
 CORPUS := data/corpus.lz4
-#CAT_CORPUS_TO_STDOUT ?= find $(CORPUS) -type f | head -n $(I) | xargs cat
+#CAT_CORPUS_TO_STDOUT ?= find $(CORPUS) -type f | head -n $(MAX_ITEMS) | xargs cat
 CAT_CORPUS_TO_STDOUT ?= lz4c -dc  $(CORPUS) 
 
 # Path to saved output from filter
@@ -39,9 +39,9 @@ include config.mk
 endif
 
 # benchmarking parameters:  search-library;  max names to use;  max items to use
-#LINK    ?= multifast
-N	?= 500000
-I	?= 900
+LINK    ?= multifast
+MAX_NAMES	?= 2000000
+MAX_ITEMS	?= 900
 
 
 ###########################################  HELP
@@ -58,7 +58,7 @@ _cc := $(CXX)-$(shell $(CXX) -v 2>&1 | sed  -n 's/^.*ersion *\(4[^ ]*\) .*/\1/p'
 #_date := $(shell date +'%y%m%d_%H%M%S')
 _rev := $(shell git rev-parse --git-dir 2> /dev/null 1>/dev/null && git rev-parse HEAD|sed -n 's/^\(......\).*/\1/p' )
 #_cpu=$(shell uname -m -p  |sed 's/Intel(R)//;s/(TM)//;s/@//;s/CPU//;s/ \+/-/g')
-_cpu := $(shell sed -n '/^model name/!d; s/.*: //; s/(tm) Processor//; s/Intel(R)//; s/(TM)//; s/@//; s/^ //; s/ \+/-/g;p;q' /proc/cpuinfo )
+_cpu := $(shell sed -n '/^model name/!d; s/.*: //; s/Processor//; s/Intel//; s/(TM)//; s/(R)//g; s/CPU//; s/@//; s/^ //; s/ \+/-/g;p;q' /proc/cpuinfo )
 _cores := $(shell awk '/^processor/{cores=$$3+1}; END{print cores}' /proc/cpuinfo)
 _mhz := $(shell awk '/^cpu MHz/{mhz=$$4}; END{print mhz}' /proc/cpuinfo | sed 's/\.[0-9]\+//')
 ID := $(shell echo "$(_rev)-$(_cc)-$(MODE)-$(_cpu)-x$(_cores)@$(_mhz)" | tr -d ' ')
@@ -84,8 +84,7 @@ filter-%:         MODE = OPTIMIZE
 #unit-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 #t-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 
-   export CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) -std=c++0x 
-   export   CFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS)
+export CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) -std=c++0x 
 
 %:  %.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
@@ -118,12 +117,10 @@ $(filtername_thrift_cpp): filternames.thrift
 %-naive:   %.o naive.o $(DEPS)
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
-
 ##  %-vsearch  ----------
 
 %-vsearch:  %.o  vsearch.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
-
 
 ##  %-multifast  -----
 
@@ -181,26 +178,21 @@ $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 
 ########################################### LIBS
 
-filter.o    mk_mmap_names.o  test_throughput_speed.o:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
-filter-%    mk_mmap_names    test_throughput_speed:     LDFLAGS  += -L$(STREAMCORPUS)/cpp
-filter-%    mk_mmap_names    test_throughput_speed:     LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
+filter.o    scf2mmap.o  test_throughput_speed.o:   CXXFLAGS += -I$(STREAMCORPUS)/cpp
+filter-%    scf2mmap    test_throughput_speed:     LDFLAGS  += -L$(STREAMCORPUS)/cpp
+filter-%    scf2mmap    test_throughput_speed:     LDLIBS   += -lstreamcorpus -lthrift -lboost_program_options  
 
 $(filternames_thrift_o):   filternames_types.h
-filter.o mk_mmap_names.o:  filternames_types.h  $(STREAMCORPUS)/cpp/libstreamcorpus.a 
+filter.o scf2mmap.o:  filternames_types.h  $(STREAMCORPUS)/cpp/libstreamcorpus.a 
 
 
 ###########################################  make names mmap
 
-mk_mmap_names:         mk_mmap_names.o		$(filternames_thrift_o)  naive.o
+scf2mmap:         scf2mmap.o		$(filternames_thrift_o) 
 
-count_names:  mk_mmap_names | $(DATA)
-	$(RM) corpus.txt
-	$(CAT_CORPUS_TO_STDOUT) |  ./mk_mmap_names  -f $(NAMES)  -c
+data/names.mmap: scf2mmap
+	scf2mmap -f $(NAMES)
 
-names_data.mmap:  mk_mmap_names | $(DATA)
-	$(RM) corpus.txt
-	$(CAT_CORPUS_TO_STDOUT) |  ./mk_mmap_names  -f $(NAMES) 
-	ls -l names_data.mmap 
 
 ##########################################  MISC
 clean:
@@ -234,7 +226,10 @@ test:    $(LIBS) unit-naive unit-multifast
 
 run:  filter-$(LINK) | $(DATA)
 	@$(POWER_SAVING_OFF)
-	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(N) -f $(NAMES) -I $(I) --verbose $(RUNFLAGS) > $(OUTPUT)
+	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(MAX_NAMES)             -I $(MAX_ITEMS) --verbose $(RUNFLAGS) > $(OUTPUT)
+
+#	$(CAT_CORPUS_TO_STDOUT) | $(TIME) ./filter-$(LINK) -N $(MAX_NAMES) -f $(NAMES) -I $(MAX_ITEMS) --verbose $(RUNFLAGS) > $(OUTPUT)
+
 
 ###########################################  TEST_THROUGHPUT_SPEED
 
@@ -248,6 +243,8 @@ TTS-pv: test_throughput_speed  | $(DATA)
 	$(TIME) ./test_throughput_speed streamcorpus/test-data/john-smith-tagged-by-lingpipe-0-v0_3_0.sc - | pv > /dev/null
 
 ###########################################  MMAP Benchmarks
+
+bench.o: CXXFLAGS+=-DMAX_NAMES=$(MAX_NAMES)
 
 BENCH-%:  bench-%
 	$(TIME) $<

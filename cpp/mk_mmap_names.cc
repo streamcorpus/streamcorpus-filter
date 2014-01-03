@@ -232,7 +232,7 @@ int main(int argc, char **argv) {
 	if (count_only)  exit(0);
 
 	cerr << "writing names memory map file\n";
-	lvv::mmap_write("names_data.mmap", *names_data);
+	mmap_write("names_data.mmap", *names_data);
 
 	exit(0);
 

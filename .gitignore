@@ -24,6 +24,7 @@ py/src/streamcorpus_filters/constants.py
 py/src/streamcorpus_filters/ttypes.py
 
 # C++
+cpp/multifast/
 cpp/config.mk
 cpp/filternames_constants.cpp
 cpp/filternames_constants.h
@@ -35,13 +36,12 @@ cpp/*-vsearch
 *.gch
 cpp/data
 cpp/streamcorpus
-cpp/multifast
 cpp/*.gprof*
 cpp/pro*
 cpp/log*
 cpp/*.mmap
 cpp/note
-cpp/mk_mmap_names
 cpp/test_throughput_speed
+cpp/scf2mmap
 
 

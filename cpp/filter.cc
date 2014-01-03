@@ -19,11 +19,6 @@
 #include "streamcorpus_constants.h"
 	namespace sc = streamcorpus;
 
-// THRIFT -- FILTERNAMES
-#include "filternames_types.h"
-#include "filternames_constants.h"
-	namespace fn = filternames;
-
 
 // STD
 #include <iostream>
@@ -51,6 +46,9 @@
 #include <boost/program_options.hpp>
 	namespace po = boost::program_options;
 
+// LVVLIB
+
+#include "lvvlib/mmap.h"
 
 
 int main(int argc, char **argv) {
@@ -58,11 +56,12 @@ int main(int argc, char **argv) {
 	///////////////////////////////////////////////////////////////////////////////  OPTIONS
 
 	// options
-	string		text_source	="clean_visible";
-	string		filtername_path;
+	string		text_source	= "clean_visible";
+	string		names_path	= "data/names.mmap";	// default location of names mmap
+	string		names_begin_path= ""; 			// default will be "data/names_begin.mmap";
 	bool		negate		= false;
-	long		max_names	= numeric_limits<long>::max();
-	long		max_items	= numeric_limits<long>::max();
+	size_t		max_names	= numeric_limits<size_t>::max();
+	size_t		max_items	= numeric_limits<size_t>::max();
 	bool		verbose		= false;
 	bool		no_search	= false;
 
@@ -72,9 +71,9 @@ int main(int argc, char **argv) {
 		("help,h",                                          "help message")
 		("text_source,t", po::value<string>(&text_source),  "text source in stream item")
 		("negate,n",	po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
-		("filternames,f", po::value<string>(&filtername_path), "filternames file")
-		("max-names,N", po::value<long>(&max_names), "maximum number of names to use")
-		("max-items,I", po::value<long>(&max_items), "maximum number of items to process")
+		("names-mmap,n", po::value<string>(&names_path), "path to names mmap file (and names_begin")
+		("max-names,N", po::value<size_t>(&max_names), "maximum number of names to use")
+		("max-items,I", po::value<size_t>(&max_items), "maximum number of items to process")
 		("verbose",	"performance metrics every 100 items")
 		("no-search",	"do not search - pass through every item")
 	;
@@ -90,6 +89,17 @@ int main(int argc, char **argv) {
 	}
 	if (vm.count("verbose"))	verbose=true;
 	if (vm.count("no-search"))	no_search=true;
+
+
+	// construct names_begin_path
+	size_t ext_pos = names_path.rfind(".mmap");
+	copy(names_path.begin(), names_path.begin()+ext_pos, back_inserter(names_begin_path));
+	names_begin_path.append("_begin.mmap");
+
+	if (verbose) {
+		cerr << "\tnames_path: " << names_path << endl;
+		cerr << "\tnames_begin_path: " << names_begin_path << endl;
+	}
 
 	
 	////////////////////////////////////////////////////////////// BUILD/CPU ID
@@ -113,58 +123,58 @@ int main(int argc, char **argv) {
 	
 	auto start = chrono::high_resolution_clock ::now();
 
-	#ifdef MMAP_NAMES
-		// to implement
-	#else
-		int scf_fh = open(filtername_path.c_str(), O_RDONLY);
+	unordered_map<string, set<string>> target_text_map;
 
-						if(scf_fh==-1)  {
-							cerr << "error: cann't open scf file -- '" << filtername_path << "'\n";
-							exit(1);
-						}
+	size_t name_min=9999999999;
+	size_t name_max=0;
+	size_t total_name_length=0;
+      
+	/////////////////////////////////////////////////  READ NAMES MMAP
 
-		boost::shared_ptr<att::TFDTransport>		innerTransportScf (new att::TFDTransport(scf_fh));
-		boost::shared_ptr<att::TBufferedTransport>	transportScf      (new att::TBufferedTransport(innerTransportScf));
-		boost::shared_ptr<atp::TBinaryProtocol>		protocolScf       (new atp::TBinaryProtocol(transportScf));
-		transportScf->open();
-		
-		fn::FilterNames filter_names;
-		filter_names.read(protocolScf.get());
-		names_t  names;
+	size_t 	names_size;	// number of names (size of names_begin-1)
+	size_t 	names_mem;      // size of names_data;
+	char 	*names_data  = mmap_read<char>  (names_path.c_str(),       names_mem);
+	size_t	*names_begin = mmap_read<size_t>(names_begin_path.c_str(), names_size);
+	names_size--;
 
-								//filter_names.name_to_target_ids["John Smith"] = vector<string>();
 
-		unordered_map<string, set<string>> target_text_map;
+	/////////////////////////////////////////////////  CONSTRUCT NAMES_T 
 
-		
-		#ifdef LVV
-			// a hack to release some memory
-			filter_names.target_id_to_names = std::map<std::string, std::vector<std::string>>();
-		#endif
+	names_t		names;  
 
-		size_t name_min=9999999999;
-		size_t name_max=0;
-		size_t total_name_length=0;
-	      
-		for(auto& pr : filter_names.name_to_target_ids) {
-			if ((long)names.size() >= max_names) break;
-			auto p  = pr.first.data();
-			auto sz = pr.first.size();
-			names.insert(p , p+sz);
+	for (size_t i=0;  i< std::min(max_names,names_size);  ++i) {
+						//cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
+						//<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
+		names.insert(names_data+names_begin[i], names_data+names_begin[i+1]); 
 
-			// names stats
-			name_min = std::min(name_min,sz);
-			name_max = std::max(name_max,sz);
-			total_name_length += sz;
-		}
-		names.post_ctor();
-		transportScf->close();
-	#endif
+		// names stats
+		size_t sz =  names_begin[i+1] - names_begin[i];
+		name_min = std::min(name_min,sz);
+		name_max = std::max(name_max,sz);
+		total_name_length += sz;
+	}
+
+	names.post_ctor();
+        /*
+	for(auto& pr : filter_names.name_to_target_ids) { 
+		if ((long)names.size() >= max_names) break;
+		auto p  = pr.first.data();
+		auto sz = pr.first.size();
+		names.insert(p , p+sz);
+
+		// names stats
+		name_min = std::min(name_min,sz);
+		name_max = std::max(name_max,sz);
+		total_name_length += sz;
+	}
+	names.post_ctor();
+	transportScf->close();
+	*/
 
 	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
 	double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
-	clog << "Names: "  << filter_names.name_to_target_ids.size()
+	clog << "Names: "  	   << names_size
 	     << ";  used: "        << names.size()
 	     << ";  min: "         << name_min
 	     << ";  max: "         << name_max
@@ -175,14 +185,7 @@ int main(int argc, char **argv) {
 	clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
 	}
 
-					/*// check data
-					for(const auto& pr : filter_names.target_id_to_names) {
-						clog << pr.first << endl;
-						for(auto& name : pr.second) {
-							clog << '\t' << name << endl;
-						}
-					}*/
-	/////////////////////////////////////////////////////////////////////////////////// SC Objects
+	//////////////////////////////////////////////////////////////////////////  CREATE ANNOTATOR OBJECT
 	
 
 	// Create annotator object
@@ -201,6 +204,7 @@ int main(int argc, char **argv) {
 	streamtime.zulu_timestamp = ctime(&seconds);
 	annotator.__set_annotation_time(streamtime);
 
+	//////////////////////////////////////////////////////////////////////////// OPEN IN / OUT SC STREAMS
 	
 	// Setup thrift reading and writing from stdin and stdout
 	int input_fd = 0;
@@ -283,6 +287,8 @@ int main(int argc, char **argv) {
 			pos_t		match_b, match_e;
 
 			if (no_search) {
+
+					// add label to item
 					matches++;
 					sc::Target target;
 					target.target_id = "1";
@@ -397,7 +403,7 @@ int main(int argc, char **argv) {
 	    		
 	    		stream_items_count++;
 
-			if (stream_items_count >= max_items)  throw att::TTransportException();
+			if (stream_items_count >= (long)max_items)  throw att::TTransportException();
 	    	}
 
 		//----------------------------------------------------------------------------  items read cycle exit

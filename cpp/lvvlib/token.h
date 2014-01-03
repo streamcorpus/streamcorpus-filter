@@ -1,7 +1,8 @@
 // splits string into tokens
 // part of lvvlib - https://github.com/lvv/lvvlib
-				
-#include<algorithm>
+
+
+#include <algorithm>
 	using std::find_if;
 	using std::find_if_not;
 
@@ -9,6 +10,8 @@
 							namespace {
 
 typedef  const char*   	pos_t;
+constexpr char	token_separator = ' ';
+
 
 // names, token
 struct  strref  {
@@ -25,7 +28,7 @@ struct  strref  {
 
 __attribute__((unused)) 
 std::ostream&   operator<< (std::ostream& os, const strref& s)  {
-	return os << " (" << std::string(s.b,s.e) << ") ";
+	return os << "(" << std::string(s.b,s.e) << ")";
 };
 
 
@@ -65,6 +68,7 @@ bool	are_equal_token_chains (pos_t b1, pos_t e1, pos_t b2, pos_t e2)  {
 
 	return tb1==e1  &&  tb2==e2;
 }
+
 
 bool	is_head_of (pos_t b1, pos_t e1, pos_t b2, pos_t e2, pos_t& match_e)  {
                                           // (b1,e1) - token chain;  
