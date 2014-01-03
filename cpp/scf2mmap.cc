@@ -1,4 +1,8 @@
-// converts filternames.scf names into mmap file
+// Converts filternames.scf names into mmap file
+//
+// There are 2 output names data/names_data.mmap and data/names_begin.mmap
+// Usage:
+// 	scf2mmap -f path-to-filter-names.scf
 
 
 // LIBC

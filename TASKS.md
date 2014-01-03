@@ -76,10 +76,10 @@ For each case, we will need to borrow a limited set of regex syntax:
 
 ~~ Phase 5a:
  - make scf2mmap tool
-    - create data/names.mmap
+    - create data/names.mmap and data/names_begin.mmap
     - re-run performance test with new names
     - add usage docs in docs/index.txt (in lvvlib)
-    - test for mmap.h (t-mmap.h in lvvlib)
+    - new tests for mmap.h (t-mmap.h in lvvlib)
 
 
 
