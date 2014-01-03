@@ -1,7 +1,5 @@
-// converts scf names into mmap file
-//
+// converts filternames.scf names into mmap file
 
-#include "lvvlib/mmap.h"
 
 // LIBC
 #include <fcntl.h>
@@ -52,13 +50,13 @@
 //#include <scc/simple.h>
 //#endif
 #include "lvvlib/token.h"
+#include "lvvlib/mmap.h"
 
 
 int main(int argc, char **argv) {
 	
 	///////////////////////////////////////////////////////////////////////////////  OPTIONS
 
-	// options
 	string		filtername_path;
 
 	po::options_description desc("Allowed options");
@@ -102,28 +100,29 @@ int main(int argc, char **argv) {
 
 	////////////////////////////////////////////////////////////////////////////////// FILTER AND ADD TO NAMES
 	
-	vector<char>	names_data;
-	vector<char>	name;
-	vector<size_t>	names_begin{0};		// names_begin[0] starts at pos 0
+	vector<char>	names_data;		// cancantenated content of names
+	vector<char>	name;                   // temp name
+	vector<size_t>	names_begin{0};		// array of indexes in names_data which point to begining of a names. 
+						// a name i is from names_begin[i] to names_begin[i+1]
 
 	size_t name_min=9999999999;
 	size_t name_max=0;
 	size_t good_names = 0; 	  
 	
-	set<vector<char>> uniq_set;
+	set<vector<char>> uniq_set;            	// used in check for uniqness
 	long total_tokens = 0;
 
 
 	// for all names in filter_names
 	for(auto& pr : filter_names.name_to_target_ids) {
-		auto s  = pr.first.data();
-		size_t sz = pr.first.size();
+		auto s  = pr.first.data();                             		// name
+		size_t sz = pr.first.size();                                    // is size
 
 						#ifdef DISPLAY_NAMES
 						cout << "\nscf name: \t(" << string(s,s+sz) << ")\n";
 						#endif
 		// split into tokens
-		pos_t  tb, te = s;
+		pos_t  tb, te = s;             					// token begin, end
 		pos_t  e = s + sz;
 		name.clear();
 		long tokens = 0;
@@ -134,7 +133,7 @@ int main(int argc, char **argv) {
 			++tokens;
 		}
 
-		// good / bad name
+		// filter out bad names
 		constexpr long	max_name_length = 1000;
 		constexpr long	min_name_length = 3;
 		constexpr long	min_name_tokens = 1;
@@ -184,3 +183,5 @@ int main(int argc, char **argv) {
 
 	cerr << "done\n";
 }
+
+// vim: ts=8 sw=8
