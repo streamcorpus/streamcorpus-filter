@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <time.h>
 
+#include <arpa/inet.h>
 // THRIFT
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/protocol/TDenseProtocol.h>
@@ -51,18 +52,23 @@
 #include "lvvlib/mmap.h"
 
 
+#include "normalize.h"
+
+
 int main(int argc, char **argv) {
 	
 	///////////////////////////////////////////////////////////////////////////////  OPTIONS
 
 	// options
 	string		text_source	= "clean_visible";
-	string		names_path	= "data/names.mmap";	// default location of names mmap
+	string		names_path	/*= "data/names.mmap"*/;	// default location of names mmap
 	string		names_begin_path= ""; 			// default will be "data/names_begin.mmap";
+	string          names_simple_path;
 	bool		negate		= false;
 	size_t		max_names	= numeric_limits<size_t>::max();
 	size_t		max_items	= numeric_limits<size_t>::max();
 	bool		verbose		= false;
+	bool		do_normalize	= false;
 	bool		no_search	= false;
 
 	po::options_description desc("Allowed options");
@@ -72,9 +78,11 @@ int main(int argc, char **argv) {
 		("text_source,t", po::value<string>(&text_source),  "text source in stream item")
 		("negate,n",	po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
 		("names-mmap,n", po::value<string>(&names_path), "path to names mmap file (and names_begin")
+		("names,n", po::value<string>(&names_simple_path), "path to names mmap file (and names_begin")
 		("max-names,N", po::value<size_t>(&max_names), "maximum number of names to use")
 		("max-items,I", po::value<size_t>(&max_items), "maximum number of items to process")
 		("verbose",	"performance metrics every 100 items")
+		("normalize",	"collapse spaces of input")
 		("no-search",	"do not search - pass through every item")
 	;
 	
@@ -89,8 +97,10 @@ int main(int argc, char **argv) {
 	}
 	if (vm.count("verbose"))	verbose=true;
 	if (vm.count("no-search"))	no_search=true;
+	if (vm.count("normalize"))	do_normalize=true;
 
 
+	if (!names_path.empty()) {
 	// construct names_begin_path
 	size_t ext_pos = names_path.rfind(".mmap");
 	copy(names_path.begin(), names_path.begin()+ext_pos, back_inserter(names_begin_path));
@@ -99,6 +109,12 @@ int main(int argc, char **argv) {
 	if (verbose) {
 		cerr << "\tnames_path: " << names_path << endl;
 		cerr << "\tnames_begin_path: " << names_begin_path << endl;
+	}
+	} else if (!names_simple_path.empty()) {
+
+	} else {
+	    cerr << "need one of --names-mmap or --names" << endl;
+	    return 1;
 	}
 
 	
@@ -128,10 +144,28 @@ int main(int argc, char **argv) {
 	size_t name_min=9999999999;
 	size_t name_max=0;
 	size_t total_name_length=0;
+	names_t names;  
+	size_t 	names_size;	// number of names (size of names_begin-1)
       
+	if (!names_simple_path.empty()) {
+	    size_t names_mem;      // size of names_data;
+	    names_size = 0;
+	    char* names_data  = mmap_read<char>(names_simple_path.c_str(), names_mem);
+
+	    size_t startpos = 0;
+	    size_t pos = 0;
+	    while (pos < names_mem) {
+		if (names_data[pos] == '\n') {
+		    names.insert(names_data + startpos, names_data + pos);
+		    names_size++;
+		    startpos = pos + 1;
+		}
+		pos++;
+	    }
+	    // TODO: munmap() and close!
+	} else {
 	/////////////////////////////////////////////////  READ NAMES MMAP
 
-	size_t 	names_size;	// number of names (size of names_begin-1)
 	size_t 	names_mem;      // size of names_data;
 	char 	*names_data  = mmap_read<char>  (names_path.c_str(),       names_mem);
 	size_t	*names_begin = mmap_read<size_t>(names_begin_path.c_str(), names_size);
@@ -140,7 +174,6 @@ int main(int argc, char **argv) {
 
 	/////////////////////////////////////////////////  CONSTRUCT NAMES_T 
 
-	names_t		names;  
 
 	for (size_t i=0;  i< std::min(max_names,names_size);  ++i) {
 						//cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
@@ -152,6 +185,8 @@ int main(int argc, char **argv) {
 		name_min = std::min(name_min,sz);
 		name_max = std::max(name_max,sz);
 		total_name_length += sz;
+	}
+	    // TODO: munmap() and close!
 	}
 
 	names.post_ctor();
@@ -226,7 +261,7 @@ int main(int argc, char **argv) {
 	start = chrono::high_resolution_clock ::now();
 	sc::StreamItem stream_item;
 	long total_content_size=0;
-	int  stream_items_count=0;
+	size_t  stream_items_count=0;
 	int  matches=0;
 	int  written=0;
 	#ifdef DEBUG
@@ -311,14 +346,32 @@ int main(int argc, char **argv) {
 					target_text_map[target.target_id].insert(std::string(b, b+1));
 
 			} else {
+			    char* normtext = NULL;
+			    size_t* offsets = NULL;
+			    if (do_normalize) {
+				size_t normlen;
+				size_t rawlen = content.size();
+				offsets = new size_t[rawlen];
+				normtext = new char[rawlen];
+				normlen = normalize(content.data(), rawlen, offsets, normtext);
+				names.set_content(normtext, normtext + normlen);
+			    } else {
 				names.set_content(p, e);
+			    }
 
 				while (names.find_next(match_b, match_e)) {
 				
 					// found
 					#ifdef DEBUG
+				    if (do_normalize) {
+					size_t startoffset = offsets[match_b - normtext];
+					size_t endoffset = offsets[match_e - normtext];
+					clog << "found \"" << std::string(match_b, match_e) << "\" at source offset " << startoffset << ", originally \"" << content.substr(startoffset, endoffset - startoffset) << "\"" << endl;
+				} else {
+
 					clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
 					clog << "   pos:" << match_b-b << " \t" << std::string(match_b, match_e) << "\n";
+				}
 					#endif
 				
 				
@@ -357,6 +410,11 @@ int main(int argc, char **argv) {
 
 					// advance pos to begining of unsearched content
 					p = match_e;
+				}
+
+				if (normtext != NULL) {
+				    delete [] normtext;
+				    delete [] offsets;
 				}
 			}
 	    		
@@ -403,7 +461,7 @@ int main(int argc, char **argv) {
 	    		
 	    		stream_items_count++;
 
-			if (stream_items_count >= (long)max_items)  throw att::TTransportException();
+			if (stream_items_count >= max_items)  throw att::TTransportException();
 	    	}
 
 		//----------------------------------------------------------------------------  items read cycle exit

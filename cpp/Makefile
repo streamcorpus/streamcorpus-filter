@@ -79,7 +79,8 @@ endif
 
 unit-%:           MODE = DEBUG
 bench-%:          MODE = OPTIMIZE
-filter-%:         MODE = OPTIMIZE
+#filter-%:         MODE = OPTIMIZE
+filter-%:         MODE = DEBUG
 
 #unit-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 #t-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
@@ -88,7 +89,6 @@ export CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) -std=c++0x
 
 %:  %.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
-	
 
 # additianal debug fascilities, if available
 ifneq ($(wildcard /home/lvv/p),)
@@ -129,7 +129,7 @@ multifast.o:       CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
 %-multifast:       LDFLAGS  += -L $(MULTIFAST)/ahocorasick/build/
 %-multifast:       LDLIBS   += -l ahocorasick
 
-%-multifast:   %.o  multifast.o
+%-multifast:   %.o  multifast.o normalize.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 ## filter 
@@ -157,8 +157,8 @@ $(NAMES):
 $(CORPUS):
 	mkdir -p data/
 	wget -c -O - $(CORPUS_URL) | tar -xJ -O -f - | lz4c > $(CORPUS)
-	#mkdir -p $(CORPUS)
-	#wget -O - $(CORPUS_URL) | tar -xJ -C $(CORPUS) --strip-components=1 -f -
+#	mkdir -p $(CORPUS)
+#	wget -O - $(CORPUS_URL) | tar -xJ -C $(CORPUS) --strip-components=1 -f -
 
 $(MULTIFAST) :
 	svn checkout $(MULTIFAST_REPO) multifast
@@ -166,14 +166,13 @@ $(MULTIFAST) :
 $(MULTIFAST)/ahocorasick/build/libahocorasick.a : $(MULTIFAST)
 	make -BC $(MULTIFAST)/ahocorasick/
 	ls   -l  $(MULTIFAST)/ahocorasick/build/libahocorasick.a
-	
+
 $(STREAMCORPUS):
 	git clone -b v0.3.0-dev $(STREAMCORPUS_REPO)
 
 $(STREAMCORPUS)/cpp/libstreamcorpus.a : | $(STREAMCORPUS)
 	make -f $(PWD)/streamcorpus.mk  -C  $(STREAMCORPUS)/cpp/  libstreamcorpus.a;
-
-	#cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  make  MAKE_VERBOSE=1 -B;  ls libstreamcorpus.a
+#	cd  $(STREAMCORPUS)/cpp;  cmake -F CMakeLists.txt;  make  MAKE_VERBOSE=1 -B;  ls libstreamcorpus.a
 
 
 ########################################### LIBS

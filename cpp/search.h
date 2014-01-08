@@ -12,8 +12,10 @@ struct  names_t {                       // pimpl idiom
 	       names_t    ();
 	      ~names_t    ();
 	void   post_ctor  ();
+    // TODO: all these apis should be pointer+length not pointer+endpointer
 	void   insert     (pos_t b, pos_t e);
 	void   set_content(pos_t b, pos_t e);
+    // TODO: find_next should take pointers not references
 	bool   find_next  (pos_t& match_b, pos_t& match_e);
 	void   print      ();
 	size_t size       ();
