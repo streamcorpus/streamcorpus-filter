@@ -1,3 +1,4 @@
+// g++ -Wall -DHAVE_ICU=1 -g normalize.cc normfoo.cc -o normfoo -licuuc
 #include <assert.h>
 #include <iostream>
 
@@ -30,38 +31,15 @@ int main(int argc, const char** argv) {
 	return 1;
     }
 
-    cin >> utf8line;
+    std::getline(cin, utf8line);
     while (!utf8line.empty()) {
-#if 1
 	string utf8out;
+
 	lesserUTF8String(utf8line, &utf8out, NULL);
-#else
-	UnicodeString line = UnicodeString::fromUTF8(utf8line);
-	UnicodeString decomped;
-	
-	int32_t len = line.countChar32();
-	for (int32_t i = 0; i < len; i++) {
-	    UChar32 c = line.char32At(i);
-	    if (norm->isInert(c)) {
-		decomped += u_tolower(c);
-	    } else {
-		UnicodeString texpand;
-		norm->getDecomposition(c, texpand);
-		int32_t exlen = texpand.countChar32();
-		for (int32_t xi = 0; xi < exlen; xi++) {
-		    UChar32 xc = texpand.char32At(xi);
-		    if (u_getCombiningClass(xc) == 0) {
-			decomped += u_tolower(xc);
-		    }
-		}
-	    }
-	}
-	string utf8out;
-	decomped.toUTF8String(utf8out);
-#endif
+
 	cout << utf8out << endl;
 	if (cin.eof()) break;
-	cin >> utf8line;
+	std::getline(cin, utf8line);
     }
     return 0;
 }

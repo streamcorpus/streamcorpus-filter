@@ -346,15 +346,26 @@ int main(int argc, char **argv) {
 					target_text_map[target.target_id].insert(std::string(b, b+1));
 
 			} else {
-			    char* normtext = NULL;
+#if 1
+			    string normstr;
+			    std::vector<size_t> offsets;
+#else
 			    size_t* offsets = NULL;
+#endif
+			    const char* normtext = NULL;
 			    if (do_normalize) {
+#if 1
+				normalize(content, &normstr, &offsets);
+				normtext = normstr.data();
+				names.set_content(normtext, normtext + normstr.size());
+#else
 				size_t normlen;
 				size_t rawlen = content.size();
 				offsets = new size_t[rawlen];
 				normtext = new char[rawlen];
 				normlen = normalize(content.data(), rawlen, offsets, normtext);
 				names.set_content(normtext, normtext + normlen);
+#endif
 			    } else {
 				names.set_content(p, e);
 			    }
@@ -412,10 +423,12 @@ int main(int argc, char **argv) {
 					p = match_e;
 				}
 
+#if 0
 				if (normtext != NULL) {
 				    delete [] normtext;
 				    delete [] offsets;
 				}
+#endif
 			}
 	    		
 	    		//------------------------------------------------------------------   sc processing

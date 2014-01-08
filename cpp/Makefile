@@ -85,7 +85,7 @@ filter-%:         MODE = DEBUG
 #unit-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 #t-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 
-export CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) -std=c++0x 
+export CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) -std=c++0x -DHAVE_ICU=1
 
 %:  %.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
@@ -133,7 +133,7 @@ multifast.o:       CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 ## filter 
-filter-%:   LDLIBS += $(filternames_thrift_o)
+filter-%:   LDLIBS += $(filternames_thrift_o) -licuuc
 filter.o:             $(filternames_thrift_o)
 
 
