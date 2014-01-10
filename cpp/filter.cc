@@ -156,7 +156,14 @@ int main(int argc, char **argv) {
 	    size_t pos = 0;
 	    while (pos < names_mem) {
 		if (names_data[pos] == '\n') {
-		    names.insert(names_data + startpos, names_data + pos);
+		    if (do_normalize) {
+			string raw(names_data + startpos, pos - startpos);
+			string normed;
+			normalize(raw, &normed, NULL);
+			names.insert(normed.data(), normed.data() + normed.size());
+		    } else {
+			names.insert(names_data + startpos, names_data + pos);
+		    }
 		    names_size++;
 		    startpos = pos + 1;
 		}
@@ -178,6 +185,7 @@ int main(int argc, char **argv) {
 	for (size_t i=0;  i< std::min(max_names,names_size);  ++i) {
 						//cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
 						//<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
+	    // TODO: normalize mmap inputted names
 		names.insert(names_data+names_begin[i], names_data+names_begin[i+1]); 
 
 		// names stats

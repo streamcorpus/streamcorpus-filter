@@ -136,6 +136,8 @@ multifast.o:       CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
 filter-%:   LDLIBS += $(filternames_thrift_o) -licuuc
 filter.o:             $(filternames_thrift_o)
 
+unit-%: LDLIBS += -licuuc
+
 
 ## all 
 
