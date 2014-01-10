@@ -40,7 +40,10 @@ struct  names_t::names_impl {
 		tmp_pattern.astring  = b;
 		tmp_pattern.length   = e-b;
 		AC_STATUS_t rc = ac_automata_add (atm, &tmp_pattern);
-		if (rc != ACERR_SUCCESS) {
+		if (rc == ACERR_DUPLICATE_PATTERN) {
+		    // okay, drop duplicate silently.
+		    return;
+		} else if (rc != ACERR_SUCCESS) {
 			cerr << "multifast error: ac_automata_add() exited"
 				"\n\twith return code: " << rc <<
 				"\n\tfor string of size: " << e-b <<

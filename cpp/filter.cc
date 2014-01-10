@@ -280,6 +280,8 @@ int main(int argc, char **argv) {
 
 	while (true) {
 		try {
+		    target_text_map.clear();
+
  	    		//------------------------------------------------------------------   get item content
 	    		stream_item.read(protocolInput.get());
 
