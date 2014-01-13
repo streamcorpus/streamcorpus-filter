@@ -493,6 +493,7 @@ int main(int argc, char **argv) {
 		catch (...) {
 			// Vital to flush the buffered output or you will lose the last one
 			transportOutput->flush();
+			// NOTE: these log lines are checked in test_filter.py
 			clog << "Total stream items processed: " << stream_items_count << endl;
 			clog << "Total matches: "                << matches << endl;
 			clog << "Total stream items written: "   << written << endl;
