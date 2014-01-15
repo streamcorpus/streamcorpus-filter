@@ -79,8 +79,9 @@ endif
 
 unit-%:           MODE = DEBUG
 bench-%:          MODE = OPTIMIZE
-#filter-%:         MODE = OPTIMIZE
-filter-%:         MODE = DEBUG
+filter-%:         MODE = OPTIMIZE
+#filter-%:         MODE = DEBUG
+#filter-%:	MODE = PROFILE
 
 #unit-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 
 #t-%:   DEBUG_FLAGS += -D_GLIBCXX_DEBUG 

@@ -35,6 +35,10 @@ struct  names_t::names_impl {
 			#endif
 			return;
 		}
+		if (e==b) {
+		    cerr << "got zero length name. ignored.\n";
+		    return;
+		}
 
 		AC_PATTERN_t    tmp_pattern;
 		tmp_pattern.astring  = b;

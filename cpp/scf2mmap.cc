@@ -9,6 +9,8 @@
 #include <fcntl.h>
 #include <time.h>
 
+// thrift is too stupid to include headers it needs for 'htonl'
+#include <arpa/inet.h>
 // THRIFT
 #include <thrift/protocol/TBinaryProtocol.h>
 #include <thrift/protocol/TDenseProtocol.h>

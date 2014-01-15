@@ -45,6 +45,13 @@ def check_re(data, pattern, expected):
 
 
 def main():
+    '''
+    The test is effectively:
+xz -d < ../data/nametesttexts.sc.xz | (./filter-multifast --normalize --names=../data/dumbnames.txt 2> /tmp/${USER}_filterlog.txt) | xz > /tmp/${USER}_filter.sc.xz
+grep 'Total stream items processed: 684' /tmp/${USER}_filterlog.txt
+grep 'Total stream items written: 664' /tmp/${USER}_filterlog.txt
+
+'''
     err = 0
     logging.basicConfig(level=logging.INFO)
     indatapath = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data/nametesttexts.sc.xz'))

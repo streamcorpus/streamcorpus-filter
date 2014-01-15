@@ -4,6 +4,11 @@
 #include <fcntl.h>
 #include <time.h>
 
+// getrusage
+#include <sys/time.h>
+#include <sys/resource.h>
+
+// thrift is too stupid to include headers it needs for 'htonl'
 #include <arpa/inet.h>
 // THRIFT
 #include <thrift/protocol/TBinaryProtocol.h>
@@ -53,6 +58,11 @@
 
 
 #include "normalize.h"
+
+
+static inline double tv_to_double(struct timeval& tv) {
+    return (tv.tv_usec / 1000000.0) + tv.tv_sec;
+}
 
 
 int main(int argc, char **argv) {
@@ -186,7 +196,14 @@ int main(int argc, char **argv) {
 						//cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
 						//<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
 	    // TODO: normalize mmap inputted names
-		names.insert(names_data+names_begin[i], names_data+names_begin[i+1]); 
+	    if (do_normalize) {
+		string raw(names_data+names_begin[i], names_begin[i+1]-names_begin[i]);
+		string normed;
+		normalize(raw, &normed, NULL);
+		names.insert(normed.data(), normed.data() + normed.size());
+	    } else {
+		names.insert(names_data+names_begin[i], names_data+names_begin[i+1]);
+		    }
 
 		// names stats
 		size_t sz =  names_begin[i+1] - names_begin[i];
@@ -214,6 +231,8 @@ int main(int argc, char **argv) {
 	transportScf->close();
 	*/
 
+	struct rusage post_names_rusage;
+	getrusage(RUSAGE_SELF, &post_names_rusage);
 	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
 	double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
@@ -226,6 +245,9 @@ int main(int argc, char **argv) {
 	     << endl;
 
 	clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
+	clog << "rusage so far: my CPU=" << tv_to_double(post_names_rusage.ru_utime)
+	     << " sys CPU=" << tv_to_double(post_names_rusage.ru_stime)
+	     << endl;
 	}
 
 	//////////////////////////////////////////////////////////////////////////  CREATE ANNOTATOR OBJECT
@@ -506,6 +528,14 @@ int main(int argc, char **argv) {
 
 	/////////////////////////////////////////////////////////////////////////// TIMING RESULTS
 	
+	struct rusage end_rusage;
+	getrusage(RUSAGE_SELF, &end_rusage);
+	clog << "match usage: my CPU=" << tv_to_double(end_rusage.ru_utime) - tv_to_double(post_names_rusage.ru_utime)
+	     << " sys CPU=" << tv_to_double(end_rusage.ru_stime) - tv_to_double(post_names_rusage.ru_stime)
+	     << endl;
+	clog << "total usage: my CPU=" << tv_to_double(end_rusage.ru_utime)
+	     << " sys CPU=" << tv_to_double(end_rusage.ru_stime)
+	     << endl;
 	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
 	double nsec                 = chrono::duration_cast<chrono::nanoseconds>(diff).count();

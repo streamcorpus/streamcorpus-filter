@@ -33,8 +33,8 @@ std::ostream&   operator<< (std::ostream& os, const strref& s)  {
 
 
 struct  is_t {
-	is_t() { for (auto c: " \t\n\r-,.:'~`!@#$%^&*()_-+={}[]|\\|:;\"',<>./?")  separator[(size_t)c]=1; }
-	char separator[256]={0};
+	is_t() : separator({0}) { for (auto c: " \t\n\r-,.:'~`!@#$%^&*()_-+={}[]|\\|:;\"',<>./?")  separator[(size_t)c]=1; }
+	char separator[256];
 };
 
 is_t	is;
