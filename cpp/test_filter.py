@@ -78,6 +78,8 @@ grep 'Total stream items written: 664' /tmp/${USER}_filterlog.txt
 
     out_re = re.compile(r'Total stream items written: (\d+)')
     err = err or check_re(stderrdata, out_re, '664')
+    if err == 0:
+        sys.stderr.write('OK\n')
     sys.exit(err)
 
 

@@ -60,8 +60,73 @@
 #include "normalize.h"
 
 
-static inline double tv_to_double(struct timeval& tv) {
+#ifdef GPERF
+// Optionally use google performance sampler:
+// http://code.google.com/p/gperftools/
+#include <gperftools/profiler.h>
+
+#define GPERF_START() ProfilerStart("fm.prof")
+#else
+#define GPERF_START()
+#define ProfilerStop
+#define ProfilerFlush
+#endif
+
+
+static inline double tv_to_double(const struct timeval& tv) {
     return (tv.tv_usec / 1000000.0) + tv.tv_sec;
+}
+
+// out = a - b
+static struct timeval operator-(const struct timeval& a, const struct timeval& b) {
+	struct timeval out;
+	if (a.tv_usec < b.tv_usec) {
+		out.tv_usec = (1000000 - b.tv_usec) + a.tv_usec;
+		out.tv_sec = (a.tv_sec - b.tv_sec) - 1;
+	} else {
+		out.tv_sec = a.tv_sec - b.tv_sec;
+		out.tv_usec = a.tv_usec - b.tv_usec;
+	}
+	return out;
+}
+
+// out = a - b
+static struct rusage operator-(const struct rusage& a, const struct rusage& b) {
+	struct rusage out;
+#define O_A_B(field) out.field = a.field - b.field
+	O_A_B(ru_utime);
+	O_A_B(ru_stime);
+	O_A_B(ru_maxrss);
+	O_A_B(ru_ixrss);
+	O_A_B(ru_idrss);
+	O_A_B(ru_isrss);
+	O_A_B(ru_minflt);
+	O_A_B(ru_majflt);
+	O_A_B(ru_nswap);
+	O_A_B(ru_inblock);
+	O_A_B(ru_oublock);
+	O_A_B(ru_msgsnd);
+	O_A_B(ru_msgrcv);
+	O_A_B(ru_nsignals);
+	O_A_B(ru_nvcsw);
+	O_A_B(ru_nivcsw);
+#undef O_A_B
+	return out;
+}
+
+static void logrusage(std::ostream& out, const struct rusage& ru) {
+	out << "my CPU=" << tv_to_double(ru.ru_utime)
+		<< " sys CPU=" << tv_to_double(ru.ru_stime)
+		<< "; minor faults=" << ru.ru_minflt
+		<< ", major faults=" << ru.ru_majflt
+		<< ", swaps=" << ru.ru_nswap
+		<< ", rss=" << (ru.ru_idrss + ru.ru_isrss) << " (d=" << ru.ru_idrss << ", s=" << ru.ru_isrss << ", max=" << ru.ru_maxrss
+		<< "), blocks in=" << ru.ru_inblock
+		<< " out=" << ru.ru_oublock
+		<< ", msg in=" << ru.ru_msgrcv << " out=" << ru.ru_msgsnd
+		<< ", signals=" << ru.ru_nsignals
+		<< ", cx v=" << ru.ru_nvcsw << " i=" << ru.ru_nivcsw
+		<< endl;
 }
 
 
@@ -146,6 +211,7 @@ int main(int argc, char **argv) {
 	cerr << "   max-names: " << max_names << "   max-items: " << max_items << endl;
 
 	////////////////////////////////////////////////////////////// READ FILTERNAMES
+	GPERF_START();
 	
 	auto start = chrono::high_resolution_clock ::now();
 
@@ -245,9 +311,8 @@ int main(int argc, char **argv) {
 	     << endl;
 
 	clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
-	clog << "rusage so far: my CPU=" << tv_to_double(post_names_rusage.ru_utime)
-	     << " sys CPU=" << tv_to_double(post_names_rusage.ru_stime)
-	     << endl;
+	clog << "rusage so far: ";
+	logrusage(clog, post_names_rusage);
 	}
 
 	//////////////////////////////////////////////////////////////////////////  CREATE ANNOTATOR OBJECT
@@ -378,26 +443,13 @@ int main(int argc, char **argv) {
 					target_text_map[target.target_id].insert(std::string(b, b+1));
 
 			} else {
-#if 1
 			    string normstr;
 			    std::vector<size_t> offsets;
-#else
-			    size_t* offsets = NULL;
-#endif
 			    const char* normtext = NULL;
 			    if (do_normalize) {
-#if 1
 				normalize(content, &normstr, &offsets);
 				normtext = normstr.data();
 				names.set_content(normtext, normtext + normstr.size());
-#else
-				size_t normlen;
-				size_t rawlen = content.size();
-				offsets = new size_t[rawlen];
-				normtext = new char[rawlen];
-				normlen = normalize(content.data(), rawlen, offsets, normtext);
-				names.set_content(normtext, normtext + normlen);
-#endif
 			    } else {
 				names.set_content(p, e);
 			    }
@@ -455,12 +507,6 @@ int main(int argc, char **argv) {
 					p = match_e;
 				}
 
-#if 0
-				if (normtext != NULL) {
-				    delete [] normtext;
-				    delete [] offsets;
-				}
-#endif
 			}
 	    		
 	    		//------------------------------------------------------------------   sc processing
@@ -530,12 +576,11 @@ int main(int argc, char **argv) {
 	
 	struct rusage end_rusage;
 	getrusage(RUSAGE_SELF, &end_rusage);
-	clog << "match usage: my CPU=" << tv_to_double(end_rusage.ru_utime) - tv_to_double(post_names_rusage.ru_utime)
-	     << " sys CPU=" << tv_to_double(end_rusage.ru_stime) - tv_to_double(post_names_rusage.ru_stime)
-	     << endl;
-	clog << "total usage: my CPU=" << tv_to_double(end_rusage.ru_utime)
-	     << " sys CPU=" << tv_to_double(end_rusage.ru_stime)
-	     << endl;
+	struct rusage match_rusage = end_rusage - post_names_rusage;
+	clog << "match usage: ";
+	logrusage(clog, match_rusage);
+	clog << "total usage: ";
+	logrusage(clog, end_rusage);
 	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
 	double nsec                 = chrono::duration_cast<chrono::nanoseconds>(diff).count();
@@ -553,4 +598,7 @@ int main(int argc, char **argv) {
 	log << stream_items_count << '\t' <<  mb_per_sec << '\t' << stream_items_per_sec << endl;
 	}
 
+	ProfilerFlush();
+
+	return 0;
 }

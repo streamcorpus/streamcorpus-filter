@@ -88,6 +88,8 @@ filter-%:         MODE = OPTIMIZE
 
 export CXXFLAGS += $(COMMON_FLAGS) $($(MODE)_FLAGS) -std=c++0x -DHAVE_ICU=1
 
+-include local.make
+
 %:  %.o
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 

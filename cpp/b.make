@@ -19,8 +19,17 @@ OPTIMIZE_CFLAGS = -O3 -DNDEBUG -march=native -DOPTIMIZE
 CFLAGS += ${OPTIMIZE_CFLAGS}
 CXXFLAGS += ${OPTIMIZE_CFLAGS}
 
+THRIFT=thrift
+
+-include local.make
+
 all:	filter-multifast
 
+multifast multifast/ahocorasick/node.c multifast/ahocorasick/ahocorasick.c multifast/ahocorasick/ahocorasick.h:
+	svn co svn://svn.code.sf.net/p/multifast/code/trunk multifast
+
+filternames_constants.cpp filternames_types.cpp:	filternames.thrift
+	$(THRIFT)  --out . --gen cpp  filternames.thrift
 
 streamcorpus_constants.o:	streamcorpus/cpp/streamcorpus_constants.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $^
@@ -31,7 +40,9 @@ streamcorpus_types.o:	streamcorpus/cpp/streamcorpus_types.cpp
 FILTER_MULTIFAST_OBJS = multifast.o normalize.o filter.o multifast/ahocorasick/node.o multifast/ahocorasick/ahocorasick.o filternames_constants.o filternames_types.o streamcorpus_constants.o streamcorpus_types.o
 
 filter-multifast:	${FILTER_MULTIFAST_OBJS}
-	$(CXX) $(LDFLAGS) $(CXXFLAGS) ${FILTER_MULTIFAST_OBJS} -licuuc -lthrift -lboost_program_options -o $@
+	$(CXX) $(CXXFLAGS) ${FILTER_MULTIFAST_OBJS} $(LDFLAGS) -licuuc -lthrift -lboost_program_options -o $@
 
 clean:
 	rm -rf ${FILTER_MULTIFAST_OBJS}
+
+multifast.o:	multifast/ahocorasick/ahocorasick.h
