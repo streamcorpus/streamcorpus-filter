@@ -45,6 +45,35 @@ def check_re(data, pattern, expected):
     return err
 
 
+processed_re = re.compile(r'Total stream items processed: (\d+)')
+out_re = re.compile(r'Total stream items written: (\d+)')
+
+
+def test_cmd(cmd, rawin):
+    err = 0
+    logging.info('running %r', cmd)
+    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)
+    stdoutdata, stderrdata = p.communicate(rawin)
+    if not stdoutdata:
+        logging.error('got no stdout data')
+        err = 1
+    if p.returncode != 0:
+        logging.error('filter exited with status %r', p.returncode)
+        err = 1
+    #errlines = stderrdata.splitlines()
+    err2 = check_re(stderrdata, processed_re, '684')
+
+    err3 = check_re(stderrdata, out_re, '664')
+
+    err = err or err2 or err3
+
+    if err != 0:
+        sys.stderr.write('FAILURE underlying stderr:\n\n')
+        sys.stderr.write(stderrdata);
+        sys.stderr.write('\n\n')
+    return err
+
+
 def main():
     '''
     The test is effectively:
@@ -70,27 +99,14 @@ grep 'Total stream items written: 664' /tmp/${USER}_filterlog.txt
     namespath = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data/dumbnames.txt'))
     binpath = os.path.abspath(os.path.join(os.path.dirname(__file__), 'filter-multifast'))
     cmd = [binpath, '--normalize', '--names=' + namespath, '--verbose']
-    logging.info('running %r', cmd)
-    p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)
-    stdoutdata, stderrdata = p.communicate(rawin)
-    if not stdoutdata:
-        logging.error('got no stdout data')
-        err = 1
-    if p.returncode != 0:
-        logging.error('filter exited with status %r', p.returncode)
-        err = 1
-    #errlines = stderrdata.splitlines()
-    processed_re = re.compile(r'Total stream items processed: (\d+)')
-    err = err or check_re(stderrdata, processed_re, '684')
 
-    out_re = re.compile(r'Total stream items written: (\d+)')
-    err = err or check_re(stderrdata, out_re, '664')
+    err1 = test_cmd(cmd, rawin)
+    err2 = test_cmd([binpath, '--normalize', '--names=' + namespath, '--verbose', "--threads=2"], rawin)
+
+    err = err1 or err2
+
     if err == 0:
         sys.stderr.write('OK\n')
-    else:
-        sys.stderr.write('underlying stderr:\n\n')
-        sys.stderr.write(stderrdata);
-        sys.stderr.write('\n\n')
     sys.exit(err)
 
 

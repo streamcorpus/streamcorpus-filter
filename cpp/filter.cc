@@ -1,6 +1,8 @@
 #include "ahocorasick.h"
 #include "search.h"
 
+#include <pthread.h>
+
 // LIBC
 #include <fcntl.h>
 #include <time.h>
@@ -48,6 +50,9 @@
 	using std::numeric_limits;
 #include <fstream>
 
+// std::queue
+#include <queue>
+
 
 // BOOST
 #include <boost/program_options.hpp>
@@ -72,6 +77,88 @@
 #define ProfilerStop
 #define ProfilerFlush
 #endif
+
+
+// "RAII"
+class Locker {
+	public:
+	Locker(pthread_mutex_t* it) {
+		mutex = it;
+		pthread_mutex_lock(mutex);
+	}
+	~Locker() {
+		pthread_mutex_unlock(mutex);
+	}
+
+	private:
+	pthread_mutex_t* mutex;
+};
+
+// TODO: there might be a better threadsafe queue out there somewhere
+template<class T> class TQueue {
+	public:
+	TQueue() : TQueue(0) {}
+	TQueue(int limit);
+	~TQueue();
+	
+	void push(T& it);
+	bool pop(T* out, bool block=true);
+	void close() {
+		auto l = Locker(&mutex);
+		open = false;
+		pthread_cond_broadcast(&cond);
+	}
+	bool is_open() const { return open; }
+
+	private:
+	bool open;
+	pthread_mutex_t mutex;
+	pthread_cond_t cond; // wait on pop
+	pthread_cond_t pushcond; // wait when full to push
+	std::queue<T> they;
+	int _limit;
+};
+
+template<class T>
+TQueue<T>::TQueue(int limit)
+	: open(true), _limit(limit)
+{
+	pthread_mutex_init(&mutex, NULL);
+	pthread_cond_init(&cond, NULL);
+	pthread_cond_init(&pushcond, NULL);
+}
+
+template<class T>
+TQueue<T>::~TQueue() {
+	pthread_mutex_destroy(&mutex);
+	pthread_cond_destroy(&cond);
+}
+
+template<class T>
+void TQueue<T>::push(T& it) {
+	auto l = Locker(&mutex);
+	while ((_limit > 0) && (they.size() >= (size_t)_limit) && open) {
+		pthread_cond_wait(&pushcond, &mutex);
+	}
+	they.push(it);
+	pthread_cond_signal(&cond);
+}
+
+template<class T>
+bool TQueue<T>::pop(T* out, bool block) {
+	auto l = Locker(&mutex);
+	while (they.empty() && block && open) {
+		pthread_cond_wait(&cond, &mutex);
+	}
+	//if (!open) { return false; }
+	if (!they.empty()) {
+		*out = they.front();
+		they.pop();
+		pthread_cond_signal(&pushcond);
+		return true;
+	}
+	return false;
+}
 
 
 static inline double tv_to_double(const struct timeval& tv) {
@@ -336,7 +423,7 @@ class FilterContext {
 		logrusage(clog, post_names_rusage);
 	}
 
-	int get_best_content(const sc::StreamItem& stream_item, string* content) {
+	int get_best_content(const sc::StreamItem& stream_item, string* content) const {
 		if (text_source == "clean_visible") {
 			*content = stream_item.body.clean_visible;
 		} else if (text_source == "clean_html") {
@@ -467,6 +554,125 @@ class FilterContext {
 
 }; // FilterContext
 
+
+class FilterThread {
+	public:
+	FilterContext* fcontext;
+	TQueue<sc::StreamItem*>* items_in;
+	TQueue<sc::StreamItem*>* items_out;
+
+	FilterThread(FilterContext* fc, TQueue<sc::StreamItem*>* in, TQueue<sc::StreamItem*>* out)
+		: fcontext(fc), items_in(in), items_out(out)
+	{}
+
+	void* run() {
+		sc::StreamItem* item;
+		int count = 0, mcount = 0;
+		while (items_in->pop(&item)) {
+			count ++;
+			//clog << "ftitem\n";
+			bool matched = fcontext->check_streamitem(item);
+			if (matched) {
+				mcount++;
+				items_out->push(item);
+			}
+		}
+		//clog << "f thread ending. items=" << count << " matches=" << mcount << endl;
+		clog << "Total matches: " << mcount << endl;
+		return NULL;
+	}
+};
+
+// target for pthread_create
+void* filter_thread(void* arg) {
+	FilterThread* ft = (FilterThread*)arg;
+	return ft->run();
+}
+
+
+class StreamItemWriter {
+	public:
+	StreamItemWriter(TQueue<sc::StreamItem*>* input,
+					 atp::TBinaryProtocol* output)
+		: _input(input), _output(output)
+	{}
+
+    void run() {
+		sc::StreamItem* item;
+		int count = 0;
+		while (_input->pop(&item)) {
+			count++;
+			item->write(_output);
+		}
+		//clog << "writer thread ending, count=" << count << endl;
+		clog << "Total stream items written: " << count << endl;
+	}
+
+	private:
+	TQueue<sc::StreamItem*>* _input;
+	atp::TBinaryProtocol* _output;
+};
+
+// target for pthread_create
+void* pthread_writer(void* arg) {
+	StreamItemWriter* it = (StreamItemWriter*)arg;
+	it->run();
+	return NULL;
+}
+
+
+void run_threads(int nthreads, atp::TBinaryProtocol* input, atp::TBinaryProtocol* output, FilterContext* fc, size_t max_items) {
+	// make queues
+	TQueue<sc::StreamItem*> in_queue(10);
+	TQueue<sc::StreamItem*> out_queue(10);
+
+	// start theads
+	auto filterer = FilterThread(fc, &in_queue, &out_queue);
+	auto writer = StreamItemWriter(&out_queue, output);
+	pthread_t fthread;
+	pthread_t othread;
+
+	// TODO: multiple filter threads
+	int err = pthread_create(&fthread, NULL, filter_thread, &filterer);
+	if (err != 0) {
+		perror("opening filter thread");
+		exit(1);
+	}
+	err = pthread_create(&othread, NULL, pthread_writer, &writer);
+	if (err != 0) {
+		perror("opening writer thread");
+		exit(1);
+	}
+
+	size_t stream_items_count = 0;
+	// be the read thread
+	while (true) {
+		sc::StreamItem* si = new sc::StreamItem();
+		try {
+			si->read(input);
+		} catch (att::TTransportException e) {
+			clog << "stream ended. count=" << stream_items_count << endl;
+			break;
+		}
+		in_queue.push(si);
+		stream_items_count++;
+		if ((max_items > 0) && (stream_items_count >= max_items)) {
+			clog << "hit item limit at " << stream_items_count << endl;
+			break;
+		}
+	}
+	in_queue.close();
+	// NOTE: these log lines are checked in test_filter.py
+	clog << "Total stream items processed: " << stream_items_count << endl;
+
+	// join threads
+	pthread_join(fthread, NULL);
+
+	out_queue.close();
+	pthread_join(othread, NULL);
+}
+
+
 int main(int argc, char **argv) {
 
 	 ///////////////////////////////////////////////////////////////////////////////  OPTIONS
@@ -481,7 +687,8 @@ int main(int argc, char **argv) {
 	 size_t		max_items	= numeric_limits<size_t>::max();
 	 bool		verbose		= false;
 	 bool		do_normalize	= false;
-	 bool		no_search	= false;
+	 int        threads = 1;
+	 //bool		no_search	= false;
 
 	 po::options_description desc("Allowed options");
 
@@ -493,6 +700,7 @@ int main(int argc, char **argv) {
 		 ("names,n", po::value<string>(&names_simple_path), "path to names mmap file (and names_begin")
 		 ("max-names,N", po::value<size_t>(&max_names), "maximum number of names to use")
 		 ("max-items,I", po::value<size_t>(&max_items), "maximum number of items to process")
+		 ("threads,j", po::value<int>(&threads), "number of threads to run (default 1)")
 		 ("verbose",	"performance metrics every 100 items")
 		 ("normalize",	"collapse spaces of input")
 		 ("no-search",	"do not search - pass through every item")
@@ -514,7 +722,7 @@ int main(int argc, char **argv) {
 		 return 1;
 	 }
 	 if (vm.count("verbose"))	verbose=true;
-	 if (vm.count("no-search"))	no_search=true;
+	 //if (vm.count("no-search"))	no_search=true;
 	 if (vm.count("normalize"))	do_normalize=true;
 
 
@@ -558,119 +766,15 @@ int main(int argc, char **argv) {
 
 	 auto start = chrono::high_resolution_clock ::now();
 
-	 unordered_map<string, set<string>> target_text_map;
-
-#if 0
-	 size_t name_min=9999999999;
-	 size_t name_max=0;
-	 size_t total_name_length=0;
-	 names_t names;  
-	 size_t names_size;	// number of names (size of names_begin-1)
-#endif
+	 //unordered_map<string, set<string>> target_text_map;
 
 	 if (!names_simple_path.empty()) {
-#if 1
 		 fcontext.read_simple_names(names_simple_path);
-#else
-		 size_t names_mem;      // size of names_data;
-		 names_size = 0;
-		 char* names_data  = mmap_read<char>(names_simple_path.c_str(), names_mem);
-
-		 size_t startpos = 0;
-		 size_t pos = 0;
-		 while (pos < names_mem) {
-		 if (names_data[pos] == '\n') {
-			 if (do_normalize) {
-			 string raw(names_data + startpos, pos - startpos);
-			 string normed;
-			 normalize(raw, &normed, NULL);
-			 names.insert(normed.data(), normed.data() + normed.size());
-			 } else {
-			 names.insert(names_data + startpos, names_data + pos);
-			 }
-			 names_size++;
-			 startpos = pos + 1;
-		 }
-		 pos++;
-		 }
-		 // TODO: munmap() and close!
-#endif
 	 } else {
-#if 1
 		 fcontext.read_mmap_names(names_path);
-#else
-	 /////////////////////////////////////////////////  READ NAMES MMAP
-
-	 size_t 	names_mem;      // size of names_data;
-	 char 	*names_data  = mmap_read<char>  (names_path.c_str(),       names_mem);
-	 size_t	*names_begin = mmap_read<size_t>(names_begin_path.c_str(), names_size);
-	 names_size--;
-
-
-	 /////////////////////////////////////////////////  CONSTRUCT NAMES_T 
-
-
-	 for (size_t i=0;  i< std::min(max_names,names_size);  ++i) {
-						 //cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
-						 //<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
-		 // TODO: normalize mmap inputted names
-		 if (do_normalize) {
-		 string raw(names_data+names_begin[i], names_begin[i+1]-names_begin[i]);
-		 string normed;
-		 normalize(raw, &normed, NULL);
-		 names.insert(normed.data(), normed.data() + normed.size());
-		 } else {
-		 names.insert(names_data+names_begin[i], names_data+names_begin[i+1]);
-			 }
-
-		 // names stats
-		 size_t sz =  names_begin[i+1] - names_begin[i];
-		 name_min = std::min(name_min,sz);
-		 name_max = std::max(name_max,sz);
-		 total_name_length += sz;
-	 }
-		 // TODO: munmap() and close!
-#endif
 	 }
 
-#if 1
 	 fcontext.compile_names();
-#else
-	 names.post_ctor();
-		 /*
-	 for(auto& pr : filter_names.name_to_target_ids) { 
-		 if ((long)names.size() >= max_names) break;
-		 auto p  = pr.first.data();
-		 auto sz = pr.first.size();
-		 names.insert(p , p+sz);
-
-		 // names stats
-		 name_min = std::min(name_min,sz);
-		 name_max = std::max(name_max,sz);
-		 total_name_length += sz;
-	 }
-	 names.post_ctor();
-	 transportScf->close();
-	 */
-
-	 struct rusage post_names_rusage;
-	 getrusage(RUSAGE_SELF, &post_names_rusage);
-	 {
-	 auto diff = chrono::high_resolution_clock ::now() - start;
-	 double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
-	 clog << "Names: "  	   << names_size
-		  << ";  used: "        << names.size()
-		  << ";  min: "         << name_min
-		  << ";  max: "         << name_max
-		  << ";  avg: "         << double(total_name_length)/names.size()
-		  << "; total length: " << total_name_length
-		  << endl;
-
-	 clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
-	 clog << "rusage so far: ";
-	 logrusage(clog, post_names_rusage);
-	 }
-#endif
 
 	 //////////////////////////////////////////////////////////////////////////  CREATE ANNOTATOR OBJECT
 
@@ -722,12 +826,16 @@ int main(int argc, char **argv) {
 
 	 auto start100 = chrono::high_resolution_clock ::now();
 
+	 if (threads > 1) {
+		 run_threads(threads, protocolInput.get(), protocolOutput.get(), &fcontext, max_items);
+	 } else {
+
 	 while (true) {
 		 try {
-			 target_text_map.clear();
+			 //target_text_map.clear();
 
 				 //------------------------------------------------------------------   get item content
-				 stream_item.read(protocolInput.get());
+			 stream_item.read(protocolInput.get());
 
 			 if (verbose   &&   stream_items_count % 100 == 0  &&  stream_items_count) {
 				 auto diff  = chrono::high_resolution_clock ::now() - start100;
@@ -742,146 +850,10 @@ int main(int argc, char **argv) {
 
 
 				 string content;
-#if 1
-#elif 1
-				 int err = fcontext.get_best_content(stream_item, &content);
-				 if (err != 0) {
-					 continue;
-				 }
-#else
-	    		string actual_text_source = text_source;
-	    		if (text_source == "clean_visible") {
-	    			content = stream_item.body.clean_visible;
-	    		} else if (text_source == "clean_html") {
-	    			content = stream_item.body.clean_html;
-	    		} else if (text_source == "raw") {
-	    			content = stream_item.body.raw;
-	    		} else {
-	    			cerr << "Bad text_source :" << text_source <<endl;
-	    			exit(-1);
-	    		}
-	    		
-	    		if (content.size() <= 0) {
-	    			// Fall back to raw if desired text_source has no content.
-	    			content = stream_item.body.raw;
-	    			actual_text_source = "raw";
-	    			if (content.size() <= 0) {
-	    				// If all applicable text sources are empty, we have a problem and exit with an error
-	    				cerr << stream_items_count << " Error, doc id:" << stream_item.doc_id << " was empty." << endl;
-	    				exit(-1);
-	    			}
-	    		}
-#endif
 
-#if 0
-			total_content_size += content.size();
-	    		
-            		
-	    		//------------------------------------------------------------------   multisearch cycle
-
-			pos_t		b   	   	= content.data();
-			pos_t		e          	= b+content.size();
-			pos_t		p          	= b;
-			pos_t		match_b, match_e;
-#endif
 			bool any_match = false;
 
-			if (no_search) {
-				// TODO: deprecate/delete this vestigial code.
-				any_match = true;
-#if 0
-					// add label to item
-					matches++;
-					sc::Target target;
-					target.target_id = "1";
-				
-					sc::Label label;
-					label.target = target;
-				
-					sc::Offset offset;
-					offset.type = sc::OffsetType::CHARS;
-					
-					offset.first = 0;
-					offset.length = 1;
-					offset.content_form = std::string(b,b+1);
-				
-					label.offsets[sc::OffsetType::CHARS] = offset;
-					label.__isset.offsets = true;
-				
-					stream_item.body.labels[annotatorID].push_back(label);
-				
-					target_text_map[target.target_id].insert(std::string(b, b+1));
-#endif
-			} else {
-#if 1
-				any_match = fcontext.check_streamitem(&stream_item);
-				//fcontext.check_content(content);
-#else
-			    string normstr;
-			    std::vector<size_t> offsets;
-			    const char* normtext = NULL;
-			    if (do_normalize) {
-				normalize(content, &normstr, &offsets);
-				normtext = normstr.data();
-				names.set_content(normtext, normtext + normstr.size());
-			    } else {
-				names.set_content(p, e);
-			    }
-
-				while (names.find_next(match_b, match_e)) {
-				
-					// found
-#ifdef DEBUG
-				    if (do_normalize) {
-						size_t startoffset = offsets[match_b - normtext];
-						size_t endoffset = offsets[match_e - normtext];
-						clog << "found \"" << std::string(match_b, match_e) << "\" at source offset " << startoffset << ", originally \"" << content.substr(startoffset, endoffset - startoffset) << "\"" << endl;
-					} else {
-
-						clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
-						clog << "   pos:" << match_b-b << " \t" << std::string(match_b, match_e) << "\n";
-					}
-#endif
-				
-				
-					// mapping between canonical form of target and text actually found in document
-				
-					// For each of the current matches, add a label to the 
-					// list of labels.  A label records the character 
-					// positions of the match.
-					matches++;
-					
-					// Add the target identified to the label.  Note this 
-					// should be identical to what is in the rating 
-					// data we add later.
-					sc::Target target;
-					target.target_id = "1";
-				
-					sc::Label label;
-					label.target = target;
-				
-					// Add the actual offsets 
-					sc::Offset offset;
-					offset.type = sc::OffsetType::CHARS;
-					
-					offset.first = match_b - b;
-					offset.length = match_e - match_b;
-					offset.content_form = std::string(match_b, match_e);
-				
-					label.offsets[sc::OffsetType::CHARS] = offset;
-					label.__isset.offsets = true;
-				
-					// Add new label to the list of labels.
-					stream_item.body.labels[annotatorID].push_back(label);
-				
-					// Map of actual text mapped 
-					target_text_map[target.target_id].insert(std::string(match_b, match_e));
-
-					// advance pos to begining of unsearched content
-					p = match_e;
-				}
-#endif  /* code moved to FilterContext */
-			}
+			any_match = fcontext.check_streamitem(&stream_item);
 	    		
 #if 0
 			// TODO: resurrect this code adding ratings to stream item
@@ -914,34 +886,18 @@ int main(int argc, char **argv) {
 	    		}
 #endif
 
-#if 1
 				if ((any_match && (! negate)) ||
 					((! any_match) && negate)) {
 					stream_item.write(protocolOutput.get());
 					written++;
 				}
-#else
-				// old less clear logic
-	    		if (not negate) { 
-	    		        // Write stream_item to stdout if it had any ratings
-	    		        if (target_text_map.size() > 0) {
-	    		            stream_item.write(protocolOutput.get());
-	    		            written++;
-	    		        }
-	    		} else if (target_text_map.size() == 0) {
-	    			// Write stream_item to stdout if user requested
-	    		       	// to show ones that didn't have any matches
-	    			stream_item.write(protocolOutput.get());
-	    			written++;
-	    		}
-#endif
 	    		
 	    		stream_items_count++;
 
 				if (stream_items_count >= max_items) {
 					clog << "hit item limit at " << stream_items_count << endl;
 					break;
-				}// throw att::TTransportException();
+				}
 	    	}
 
 		//----------------------------------------------------------------------------  items read cycle exit
@@ -952,13 +908,15 @@ int main(int argc, char **argv) {
 			break;
 		}
 	 } // while(true) loop over items
-
-	 // Vital to flush the buffered output or you will lose the last one
-	 transportOutput->flush();
 	 // NOTE: these log lines are checked in test_filter.py
 	 clog << "Total stream items processed: " << stream_items_count << endl;
 	 clog << "Total matches: "                << matches << endl;
 	 clog << "Total stream items written: "   << written << endl;
+
+	 } // single thread inline execution
+
+	 // Vital to flush the buffered output or you will lose the last one
+	 transportOutput->flush();
 	 if (negate) {
 		 clog << " (Note, stream items written were non-matching ones)" << endl;
 	 }
