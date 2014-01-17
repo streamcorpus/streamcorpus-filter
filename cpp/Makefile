@@ -115,7 +115,7 @@ $(filtername_thrift_cpp): filternames.thrift
 
 ##  naive  ----------
 
-%-naive:   %.o naive.o $(DEPS)
+%-naive:   %.o naive.o normalize.o $(DEPS)
 	$(CXX) $(CXXFLAGS) -o $@ $^  $(LDFLAGS) $(LDLIBS)
 
 ##  %-vsearch  ----------
