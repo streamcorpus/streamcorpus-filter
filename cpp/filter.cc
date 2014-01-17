@@ -1,3 +1,4 @@
+#include "ahocorasick.h"
 #include "search.h"
 
 // LIBC
@@ -130,261 +131,605 @@ static void logrusage(std::ostream& out, const struct rusage& ru) {
 }
 
 
-int main(int argc, char **argv) {
-	
-	///////////////////////////////////////////////////////////////////////////////  OPTIONS
-
-	// options
-	string		text_source	= "clean_visible";
-	string		names_path	/*= "data/names.mmap"*/;	// default location of names mmap
-	string		names_begin_path= ""; 			// default will be "data/names_begin.mmap";
-	string          names_simple_path;
-	bool		negate		= false;
-	size_t		max_names	= numeric_limits<size_t>::max();
-	size_t		max_items	= numeric_limits<size_t>::max();
-	bool		verbose		= false;
-	bool		do_normalize	= false;
-	bool		no_search	= false;
-
-	po::options_description desc("Allowed options");
-
-	desc.add_options()
-		("help,h",                                          "help message")
-		("text_source,t", po::value<string>(&text_source),  "text source in stream item")
-		("negate,n",	po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
-		("names-mmap,n", po::value<string>(&names_path), "path to names mmap file (and names_begin")
-		("names,n", po::value<string>(&names_simple_path), "path to names mmap file (and names_begin")
-		("max-names,N", po::value<size_t>(&max_names), "maximum number of names to use")
-		("max-items,I", po::value<size_t>(&max_items), "maximum number of items to process")
-		("verbose",	"performance metrics every 100 items")
-		("normalize",	"collapse spaces of input")
-		("no-search",	"do not search - pass through every item")
-	;
-	
-	// Parse command line options
-	po::variables_map vm;
-	po::store(po::parse_command_line(argc, argv, desc), vm);
-	po::notify(vm);
-	
-	if (vm.count("help")) {
-		cout << desc << "\n";
-		return 1;
-	}
-	if (vm.count("verbose"))	verbose=true;
-	if (vm.count("no-search"))	no_search=true;
-	if (vm.count("normalize"))	do_normalize=true;
-
-
-	if (!names_path.empty()) {
-	// construct names_begin_path
-	size_t ext_pos = names_path.rfind(".mmap");
-	copy(names_path.begin(), names_path.begin()+ext_pos, back_inserter(names_begin_path));
-	names_begin_path.append("_begin.mmap");
-
-	if (verbose) {
-		cerr << "\tnames_path: " << names_path << endl;
-		cerr << "\tnames_begin_path: " << names_begin_path << endl;
-	}
-	} else if (!names_simple_path.empty()) {
-
-	} else {
-	    cerr << "need one of --names-mmap or --names" << endl;
-	    return 1;
-	}
-
-	
-	////////////////////////////////////////////////////////////// BUILD/CPU ID
-	cerr << "filter  " << ID ; 
-
-	#ifdef DEBUG 
-		cerr << "   MODE=DEBUG";
-	#endif
-
-	#ifdef OPTIMIZE 
-		cerr << "   MODE=OPTIMIZE";
-	#endif
-
-	#ifdef PROFILE 
-		cerr << "   MODE=PROFILE";
-	#endif
-
-	cerr << "   max-names: " << max_names << "   max-items: " << max_items << endl;
-
-	////////////////////////////////////////////////////////////// READ FILTERNAMES
-	GPERF_START();
-	
-	auto start = chrono::high_resolution_clock ::now();
-
-	unordered_map<string, set<string>> target_text_map;
-
-	size_t name_min=9999999999;
-	size_t name_max=0;
-	size_t total_name_length=0;
-	names_t names;  
-	size_t 	names_size;	// number of names (size of names_begin-1)
-      
-	if (!names_simple_path.empty()) {
-	    size_t names_mem;      // size of names_data;
-	    names_size = 0;
-	    char* names_data  = mmap_read<char>(names_simple_path.c_str(), names_mem);
-
-	    size_t startpos = 0;
-	    size_t pos = 0;
-	    while (pos < names_mem) {
-		if (names_data[pos] == '\n') {
-		    if (do_normalize) {
-			string raw(names_data + startpos, pos - startpos);
-			string normed;
-			normalize(raw, &normed, NULL);
-			names.insert(normed.data(), normed.data() + normed.size());
-		    } else {
-			names.insert(names_data + startpos, names_data + pos);
-		    }
-		    names_size++;
-		    startpos = pos + 1;
-		}
-		pos++;
-	    }
-	    // TODO: munmap() and close!
-	} else {
-	/////////////////////////////////////////////////  READ NAMES MMAP
-
-	size_t 	names_mem;      // size of names_data;
-	char 	*names_data  = mmap_read<char>  (names_path.c_str(),       names_mem);
-	size_t	*names_begin = mmap_read<size_t>(names_begin_path.c_str(), names_size);
-	names_size--;
-
-
-	/////////////////////////////////////////////////  CONSTRUCT NAMES_T 
-
-
-	for (size_t i=0;  i< std::min(max_names,names_size);  ++i) {
-						//cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
-						//<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
-	    // TODO: normalize mmap inputted names
-	    if (do_normalize) {
-		string raw(names_data+names_begin[i], names_begin[i+1]-names_begin[i]);
-		string normed;
-		normalize(raw, &normed, NULL);
-		names.insert(normed.data(), normed.data() + normed.size());
-	    } else {
-		names.insert(names_data+names_begin[i], names_data+names_begin[i+1]);
-		    }
-
-		// names stats
-		size_t sz =  names_begin[i+1] - names_begin[i];
-		name_min = std::min(name_min,sz);
-		name_max = std::max(name_max,sz);
-		total_name_length += sz;
-	}
-	    // TODO: munmap() and close!
-	}
-
-	names.post_ctor();
-        /*
-	for(auto& pr : filter_names.name_to_target_ids) { 
-		if ((long)names.size() >= max_names) break;
-		auto p  = pr.first.data();
-		auto sz = pr.first.size();
-		names.insert(p , p+sz);
-
-		// names stats
-		name_min = std::min(name_min,sz);
-		name_max = std::max(name_max,sz);
-		total_name_length += sz;
-	}
-	names.post_ctor();
-	transportScf->close();
-	*/
-
-	struct rusage post_names_rusage;
-	getrusage(RUSAGE_SELF, &post_names_rusage);
-	{
-	auto diff = chrono::high_resolution_clock ::now() - start;
-	double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
-	clog << "Names: "  	   << names_size
-	     << ";  used: "        << names.size()
-	     << ";  min: "         << name_min
-	     << ";  max: "         << name_max
-	     << ";  avg: "         << double(total_name_length)/names.size()
-	     << "; total length: " << total_name_length
-	     << endl;
-
-	clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
-	clog << "rusage so far: ";
-	logrusage(clog, post_names_rusage);
-	}
-
-	//////////////////////////////////////////////////////////////////////////  CREATE ANNOTATOR OBJECT
-	
-
-	// Create annotator object
-	sc::Annotator annotator;
+class FilterContext {
+	public:
+	string text_source;
+	int matches;
+	int written;
+	bool do_normalize;
+	bool verbose;
+	size_t max_names;
 	sc::AnnotatorID annotatorID;
-	annotatorID = "example-matcher-v0.1";
+
+#if 1
+#define DIRECT_AC 1
+
+	AC_AUTOMATA_t *atm;
+#else
+	names_t names;
+#endif
+
+	size_t name_min;
+	size_t name_max;
+	size_t total_name_length;
+	size_t 	names_size;	// number of names (size of names_begin-1)
+	long total_content_size;
+
+	chrono::high_resolution_clock::time_point start;
 	
-	// Annotator identifier
-	annotator.annotator_id = "example-matcher-v0.1";
-	
-	// Time this annotator was started
-	sc::StreamTime streamtime;
-	time_t seconds;
-	seconds = time(NULL);
-	streamtime.epoch_ticks = seconds;
-	streamtime.zulu_timestamp = ctime(&seconds);
-	annotator.__set_annotation_time(streamtime);
+	FilterContext()
+		: matches(0), written(0), do_normalize(false), verbose(false), max_names(numeric_limits<size_t>::max()), name_min(numeric_limits<size_t>::max()), name_max(0), total_name_length(0), names_size(0), total_content_size(0)
+	{
+		start = chrono::high_resolution_clock ::now();
+#if DIRECT_AC
+		 atm = ac_automata_init ();
+#endif
+	};
 
-	//////////////////////////////////////////////////////////////////////////// OPEN IN / OUT SC STREAMS
-	
-	// Setup thrift reading and writing from stdin and stdout
-	int input_fd = 0;
-	int output_fd = 1;
-	
-	// input
-	boost::shared_ptr<att::TFDTransport>	        innerTransportInput(new att::TFDTransport(input_fd));
-	boost::shared_ptr<att::TBufferedTransport>	transportInput(new att::TBufferedTransport(innerTransportInput));
-	boost::shared_ptr<atp::TBinaryProtocol>		protocolInput(new atp::TBinaryProtocol(transportInput));
-	transportInput->open();
+#if DIRECT_AC
+	void add_name(const string& name) {
+		if (name.empty()) {
+			return;
+		}
+		if (name.size() > AC_PATTRN_MAX_LENGTH) {
+#ifdef DEBUG 
+			cerr << "\twarning: name of length " << name.size() << " skipped\n";
+#endif
+			return;
+		}
 
-	// output 
-	boost::shared_ptr<att::TFDTransport>		transportOutput(new att::TFDTransport(output_fd));
-	boost::shared_ptr<atp::TBinaryProtocol>		protocolOutput(new atp::TBinaryProtocol(transportOutput));
-	transportOutput->open();
-	
+		AC_PATTERN_t tmp_pattern;
+		tmp_pattern.astring = name.data();
+		tmp_pattern.length = name.size();
+		
+		AC_STATUS_t rc = ac_automata_add (atm, &tmp_pattern);
+		if (rc == ACERR_DUPLICATE_PATTERN) {
+		    // okay, drop duplicate silently.
+		    return;
+		} else if (rc != ACERR_SUCCESS) {
+			cerr << "multifast error: ac_automata_add() exited"
+				"\n\twith return code: " << rc <<
+				"\n\tfor string of size: " << name.size() <<
+				"\n\tfor string: (" << name <<  ")\n";
+			exit(1);
+		};
+		names_size++;
+	}
 
-	///////////////////////////////////////////////////////////////////////////////  SC ITEMS READ CYCLE
-	start = chrono::high_resolution_clock ::now();
-	sc::StreamItem stream_item;
-	long total_content_size=0;
-	size_t  stream_items_count=0;
-	int  matches=0;
-	int  written=0;
-	#ifdef DEBUG
-	clog << "Reading stream item content from : " << text_source << endl;
-	#endif
-	
-	auto start100 = chrono::high_resolution_clock ::now();
+	void add_name(const char* data, size_t size) {
+		if (data == NULL) { return; }
+		if (size >  AC_PATTRN_MAX_LENGTH) {
+#ifdef DEBUG 
+			cerr << "\twarning: name of length " << size << " skipped\n";
+#endif
+			return;
+		}
 
-	while (true) {
-		try {
-		    target_text_map.clear();
+		AC_PATTERN_t tmp_pattern;
+		tmp_pattern.astring = data;
+		tmp_pattern.length = size;
+		
+		AC_STATUS_t rc = ac_automata_add (atm, &tmp_pattern);
+		if (rc == ACERR_DUPLICATE_PATTERN) {
+		    // okay, drop duplicate silently.
+		    return;
+		} else if (rc != ACERR_SUCCESS) {
+			cerr << "multifast error: ac_automata_add() exited"
+				"\n\twith return code: " << rc <<
+				"\n\tfor string of size: " << size <<
+				"\n\tfor string: (" << string(data, size) <<  ")\n";
+			exit(1);
+		};
+		names_size++;
+	}
+#else
+	void add_name(const string& name) {
+		names.insert(name.data(), name.data() + nameormed.size());
+	}
+#endif
 
- 	    		//------------------------------------------------------------------   get item content
-	    		stream_item.read(protocolInput.get());
+	int read_simple_names(const string& names_simple_path) {
+		// read a file of one name per line
+		size_t names_mem;      // size of names_data;
+		names_size = 0;
+		char* names_data  = mmap_read<char>(names_simple_path.c_str(), names_mem);
 
-			if (verbose   &&   stream_items_count % 100 == 0  &&  stream_items_count) {
-				auto diff  = chrono::high_resolution_clock ::now() - start100;
-				double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count()/1e9;
+		size_t startpos = 0;
+		size_t pos = 0;
+		while (pos < names_mem) {
+			if (names_data[pos] == '\n') {
+				if (do_normalize) {
+					string raw(names_data + startpos, pos - startpos);
+					string normed;
+					normalize(raw, &normed, NULL);
+					add_name(normed);
+					//names.insert(normed.data(), normed.data() + normed.size());
+				} else {
+					add_name(names_data + startpos, pos - startpos);
+					//names.insert(names_data + startpos, names_data + pos);
+				}
+				names_size++;
+				startpos = pos + 1;
+			}
+			pos++;
+		}
+		// TODO: munmap() and close!
+		return 0;
+	}
 
-				cerr	<< "-- item: " << stream_items_count 
-					<< "   \tavg time per item: "  << sec/100 << " sec"
-					<< "   \titems/sec: "  << 100 / sec << endl;
+	int read_mmap_names(const string& names_path) {
+		string names_begin_path = string("");
 
-				start100 = chrono::high_resolution_clock ::now();
+		// construct names_begin_path
+		size_t ext_pos = names_path.rfind(".mmap");
+		copy(names_path.begin(), names_path.begin()+ext_pos, back_inserter(names_begin_path));
+		names_begin_path.append("_begin.mmap");
+
+		if (verbose) {
+			cerr << "\tnames_path: " << names_path << endl;
+			cerr << "\tnames_begin_path: " << names_begin_path << endl;
+		}
+
+		/////////////////////////////////////////////////  READ NAMES MMAP
+
+		size_t 	names_mem;      // size of names_data;
+		char 	*names_data  = mmap_read<char>  (names_path.c_str(),       names_mem);
+		size_t	*names_begin = mmap_read<size_t>(names_begin_path.c_str(), names_size);
+		names_size--;
+
+
+		/////////////////////////////////////////////////  CONSTRUCT NAMES_T 
+
+
+		for (size_t i=0;  i< std::min(max_names,names_size);  ++i) {
+			//cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
+			//<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
+			if (do_normalize) {
+				string raw(names_data+names_begin[i], names_begin[i+1]-names_begin[i]);
+				string normed;
+				normalize(raw, &normed, NULL);
+				add_name(normed);
+				//names.insert(normed.data(), normed.data() + normed.size());
+			} else {
+				add_name(names_data+names_begin[i], names_begin[i+1]-names_begin[i]);
+				//names.insert(names_data+names_begin[i], names_data+names_begin[i+1]);
 			}
 
-		       
-	    		string content;
+			// names stats
+			size_t sz =  names_begin[i+1] - names_begin[i];
+			name_min = std::min(name_min,sz);
+			name_max = std::max(name_max,sz);
+			total_name_length += sz;
+		}
+		// TODO: munmap() and close!
+
+		return 0;
+	}
+
+	void compile_names() {
+#if DIRECT_AC
+		ac_automata_finalize(atm);
+#else
+		names.post_ctor();
+#endif
+
+		// and log stuff about it
+		struct rusage post_names_rusage;
+		getrusage(RUSAGE_SELF, &post_names_rusage);
+		auto diff = chrono::high_resolution_clock ::now() - start;
+		double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
+		clog << "Names: "  	   << names_size
+#if DIRECT_AC
+#else
+			 << ";  used: "        << names.size()
+#endif
+			 << ";  min: "         << name_min
+			 << ";  max: "         << name_max
+			//			 << ";  avg: "         << double(total_name_length)/names.size()
+			 << "; total length: " << total_name_length
+			 << endl;
+
+		clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
+		clog << "rusage so far: ";
+		logrusage(clog, post_names_rusage);
+	}
+
+	int get_best_content(const sc::StreamItem& stream_item, string* content) {
+		if (text_source == "clean_visible") {
+			*content = stream_item.body.clean_visible;
+		} else if (text_source == "clean_html") {
+			*content = stream_item.body.clean_html;
+		} else if (text_source == "raw") {
+			*content = stream_item.body.raw;
+		} else {
+			cerr << "Bad text_source :" << text_source <<endl;
+			exit(-1);
+		}
+
+		if (content->size() <= 0) {
+			// Fall back to raw if desired text_source has no content.
+			*content = stream_item.body.raw;
+			//actual_text_source = "raw";
+			if (content->size() <= 0) {
+				// If all applicable text sources are empty, we have a problem and exit with an error
+				cerr/* << stream_items_count*/ << " Error, doc id:" << stream_item.doc_id << " was empty." << endl;
+				return -1;
+				//exit(-1);
+			}
+		}
+		return 0;
+	}
+
+	//void check_content(const string& content) {
+	void check_streamitem(sc::StreamItem* stream_item) {
+
+		string content;
+
+		int err = get_best_content(*stream_item, &content);
+		if (err != 0) {
+			return;
+		}
+
+		total_content_size += content.size();
+
+		string normstr;
+		std::vector<size_t> offsets;
+		const char* normtext = NULL;
+		size_t textlen;
+
+		if (do_normalize) {
+			normalize(content, &normstr, &offsets);
+			normtext = normstr.data();
+			textlen = normstr.size();
+		} else {
+			normtext = content.data();
+			textlen = content.size();
+		}
+#if DIRECT_AC
+		AC_TEXT_t tmp_text;
+		tmp_text.astring = normtext;
+		tmp_text.length = textlen;
+		AC_FIND_CONTEXT_t findcontext;
+		findnext_context_settext(atm, &findcontext, &tmp_text, 0);
+
+		AC_MATCH_t match;
+		int did_match = ac_automata_findnext_r(atm, &findcontext, &match);
+#else
+		names.set_content(normtext, normtext + textlen);
+		pos_t match_b, match_e;
+		int did_match = names.find_next(&match_b, &match_e);
+#endif
+		while (did_match) {
+			matches++;
+	
+			// TODO: load and use actual target id
+			// Add the target identified to the label.  Note this 
+			// should be identical to what is in the rating 
+			// data we add later.
+			sc::Target target;
+			target.target_id = "1";
+				
+			sc::Label label;
+			label.target = target;
+				
+			// Add the actual offsets 
+			sc::Offset offset;
+#if DIRECT_AC
+			offset.type = sc::OffsetType::BYTES;
+					
+			size_t startpos = offsets[match.position - match.patterns[0].length];
+			size_t endpos = offsets[match.position];
+			offset.first = startpos;
+			offset.length = endpos - startpos;
+				
+			label.offsets[sc::OffsetType::BYTES] = offset;
+			label.__isset.offsets = true;
+#else
+			offset.type = sc::OffsetType::CHARS;
+					
+			offset.first = match_b - b;
+			offset.length = match_e - match_b;
+			//offset.content_form = std::string(match_b, match_e);
+				
+			label.offsets[sc::OffsetType::CHARS] = offset;
+			label.__isset.offsets = true;
+#endif
+				
+			// Add new label to the list of labels.
+			stream_item->body.labels[annotatorID].push_back(label);
+				
+			// Map of actual text mapped 
+			//target_text_map[target.target_id].insert(std::string(match_b, match_e));
+
+#if DIRECT_AC
+			did_match = ac_automata_findnext_r(atm, &findcontext, &match);
+#else
+			did_match = names.find_next(&match_b, &match_e);
+#endif
+		}
+		// TODO: copy the rest of the code here
+	}
+
+}; // FilterContext
+
+int main(int argc, char **argv) {
+
+	 ///////////////////////////////////////////////////////////////////////////////  OPTIONS
+
+	 // options
+	 string		text_source	= "clean_visible";
+	 string		names_path	/*= "data/names.mmap"*/;	// default location of names mmap
+	 string		names_begin_path= ""; 			// default will be "data/names_begin.mmap";
+	 string          names_simple_path;
+	 bool		negate		= false;
+	 size_t		max_names	= numeric_limits<size_t>::max();
+	 size_t		max_items	= numeric_limits<size_t>::max();
+	 bool		verbose		= false;
+	 bool		do_normalize	= false;
+	 bool		no_search	= false;
+
+	 po::options_description desc("Allowed options");
+
+	 desc.add_options()
+		 ("help,h",                                          "help message")
+		 ("text_source,t", po::value<string>(&text_source),  "text source in stream item")
+		 ("negate,n",	po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
+		 ("names-mmap,n", po::value<string>(&names_path), "path to names mmap file (and names_begin")
+		 ("names,n", po::value<string>(&names_simple_path), "path to names mmap file (and names_begin")
+		 ("max-names,N", po::value<size_t>(&max_names), "maximum number of names to use")
+		 ("max-items,I", po::value<size_t>(&max_items), "maximum number of items to process")
+		 ("verbose",	"performance metrics every 100 items")
+		 ("normalize",	"collapse spaces of input")
+		 ("no-search",	"do not search - pass through every item")
+	 ;
+
+	 FilterContext fcontext;
+	 fcontext.text_source = text_source;
+	 // Parse command line options
+	 po::variables_map vm;
+	 po::store(po::parse_command_line(argc, argv, desc), vm);
+	 po::notify(vm);
+
+	 if (vm.count("help")) {
+		 cout << desc << "\n";
+		 return 1;
+	 }
+	 if (vm.count("verbose"))	verbose=true;
+	 if (vm.count("no-search"))	no_search=true;
+	 if (vm.count("normalize"))	do_normalize=true;
+
+
+	 if (!names_path.empty()) {
+	 // construct names_begin_path
+	 size_t ext_pos = names_path.rfind(".mmap");
+	 copy(names_path.begin(), names_path.begin()+ext_pos, back_inserter(names_begin_path));
+	 names_begin_path.append("_begin.mmap");
+
+	 if (verbose) {
+		 cerr << "\tnames_path: " << names_path << endl;
+		 cerr << "\tnames_begin_path: " << names_begin_path << endl;
+	 }
+	 } else if (!names_simple_path.empty()) {
+
+	 } else {
+		 cerr << "need one of --names-mmap or --names" << endl;
+		 return 1;
+	 }
+
+
+	 ////////////////////////////////////////////////////////////// BUILD/CPU ID
+	 cerr << "filter  " << ID ; 
+
+	 #ifdef DEBUG 
+		 cerr << "   MODE=DEBUG";
+	 #endif
+
+	 #ifdef OPTIMIZE 
+		 cerr << "   MODE=OPTIMIZE";
+	 #endif
+
+	 #ifdef PROFILE 
+		 cerr << "   MODE=PROFILE";
+	 #endif
+
+	 cerr << "   max-names: " << max_names << "   max-items: " << max_items << endl;
+
+	 ////////////////////////////////////////////////////////////// READ FILTERNAMES
+	 GPERF_START();
+
+	 auto start = chrono::high_resolution_clock ::now();
+
+	 unordered_map<string, set<string>> target_text_map;
+
+#if 0
+	 size_t name_min=9999999999;
+	 size_t name_max=0;
+	 size_t total_name_length=0;
+	 names_t names;  
+	 size_t names_size;	// number of names (size of names_begin-1)
+#endif
+
+	 if (!names_simple_path.empty()) {
+#if 1
+		 fcontext.read_simple_names(names_simple_path);
+#else
+		 size_t names_mem;      // size of names_data;
+		 names_size = 0;
+		 char* names_data  = mmap_read<char>(names_simple_path.c_str(), names_mem);
+
+		 size_t startpos = 0;
+		 size_t pos = 0;
+		 while (pos < names_mem) {
+		 if (names_data[pos] == '\n') {
+			 if (do_normalize) {
+			 string raw(names_data + startpos, pos - startpos);
+			 string normed;
+			 normalize(raw, &normed, NULL);
+			 names.insert(normed.data(), normed.data() + normed.size());
+			 } else {
+			 names.insert(names_data + startpos, names_data + pos);
+			 }
+			 names_size++;
+			 startpos = pos + 1;
+		 }
+		 pos++;
+		 }
+		 // TODO: munmap() and close!
+#endif
+	 } else {
+#if 1
+		 fcontext.read_mmap_names(names_path);
+#else
+	 /////////////////////////////////////////////////  READ NAMES MMAP
+
+	 size_t 	names_mem;      // size of names_data;
+	 char 	*names_data  = mmap_read<char>  (names_path.c_str(),       names_mem);
+	 size_t	*names_begin = mmap_read<size_t>(names_begin_path.c_str(), names_size);
+	 names_size--;
+
+
+	 /////////////////////////////////////////////////  CONSTRUCT NAMES_T 
+
+
+	 for (size_t i=0;  i< std::min(max_names,names_size);  ++i) {
+						 //cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
+						 //<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
+		 // TODO: normalize mmap inputted names
+		 if (do_normalize) {
+		 string raw(names_data+names_begin[i], names_begin[i+1]-names_begin[i]);
+		 string normed;
+		 normalize(raw, &normed, NULL);
+		 names.insert(normed.data(), normed.data() + normed.size());
+		 } else {
+		 names.insert(names_data+names_begin[i], names_data+names_begin[i+1]);
+			 }
+
+		 // names stats
+		 size_t sz =  names_begin[i+1] - names_begin[i];
+		 name_min = std::min(name_min,sz);
+		 name_max = std::max(name_max,sz);
+		 total_name_length += sz;
+	 }
+		 // TODO: munmap() and close!
+#endif
+	 }
+
+#if 1
+	 fcontext.compile_names();
+#else
+	 names.post_ctor();
+		 /*
+	 for(auto& pr : filter_names.name_to_target_ids) { 
+		 if ((long)names.size() >= max_names) break;
+		 auto p  = pr.first.data();
+		 auto sz = pr.first.size();
+		 names.insert(p , p+sz);
+
+		 // names stats
+		 name_min = std::min(name_min,sz);
+		 name_max = std::max(name_max,sz);
+		 total_name_length += sz;
+	 }
+	 names.post_ctor();
+	 transportScf->close();
+	 */
+
+	 struct rusage post_names_rusage;
+	 getrusage(RUSAGE_SELF, &post_names_rusage);
+	 {
+	 auto diff = chrono::high_resolution_clock ::now() - start;
+	 double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
+	 clog << "Names: "  	   << names_size
+		  << ";  used: "        << names.size()
+		  << ";  min: "         << name_min
+		  << ";  max: "         << name_max
+		  << ";  avg: "         << double(total_name_length)/names.size()
+		  << "; total length: " << total_name_length
+		  << endl;
+
+	 clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
+	 clog << "rusage so far: ";
+	 logrusage(clog, post_names_rusage);
+	 }
+#endif
+
+	 //////////////////////////////////////////////////////////////////////////  CREATE ANNOTATOR OBJECT
+
+
+	 // Create annotator object
+	 sc::Annotator annotator;
+	 sc::AnnotatorID annotatorID;
+	 annotatorID = "example-matcher-v0.1";
+
+	 // Annotator identifier
+	 annotator.annotator_id = "example-matcher-v0.1";
+
+	 // Time this annotator was started
+	 sc::StreamTime streamtime;
+	 time_t seconds;
+	 seconds = time(NULL);
+	 streamtime.epoch_ticks = seconds;
+	 streamtime.zulu_timestamp = ctime(&seconds);
+	 annotator.__set_annotation_time(streamtime);
+
+	 //////////////////////////////////////////////////////////////////////////// OPEN IN / OUT SC STREAMS
+
+	 // Setup thrift reading and writing from stdin and stdout
+	 int input_fd = 0;
+	 int output_fd = 1;
+
+	 // input
+	 boost::shared_ptr<att::TFDTransport>	        innerTransportInput(new att::TFDTransport(input_fd));
+	 boost::shared_ptr<att::TBufferedTransport>	transportInput(new att::TBufferedTransport(innerTransportInput));
+	 boost::shared_ptr<atp::TBinaryProtocol>		protocolInput(new atp::TBinaryProtocol(transportInput));
+	 transportInput->open();
+
+	 // output 
+	 boost::shared_ptr<att::TFDTransport>		transportOutput(new att::TFDTransport(output_fd));
+	 boost::shared_ptr<atp::TBinaryProtocol>		protocolOutput(new atp::TBinaryProtocol(transportOutput));
+	 transportOutput->open();
+
+
+	 ///////////////////////////////////////////////////////////////////////////////  SC ITEMS READ CYCLE
+	 start = chrono::high_resolution_clock ::now();
+	 sc::StreamItem stream_item;
+	 long total_content_size=0;
+	 size_t  stream_items_count=0;
+	 int  matches=0;
+	 int  written=0;
+	 #ifdef DEBUG
+	 clog << "Reading stream item content from : " << text_source << endl;
+	 #endif
+
+	 auto start100 = chrono::high_resolution_clock ::now();
+
+	 while (true) {
+		 try {
+			 target_text_map.clear();
+
+				 //------------------------------------------------------------------   get item content
+				 stream_item.read(protocolInput.get());
+
+			 if (verbose   &&   stream_items_count % 100 == 0  &&  stream_items_count) {
+				 auto diff  = chrono::high_resolution_clock ::now() - start100;
+				 double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count()/1e9;
+
+				 cerr	<< "-- item: " << stream_items_count 
+					 << "   \tavg time per item: "  << sec/100 << " sec"
+					 << "   \titems/sec: "  << 100 / sec << endl;
+
+				 start100 = chrono::high_resolution_clock ::now();
+			 }
+
+
+				 string content;
+#if 1
+#elif 1
+				 int err = fcontext.get_best_content(stream_item, &content);
+				 if (err != 0) {
+					 continue;
+				 }
+#else
 	    		string actual_text_source = text_source;
 	    		if (text_source == "clean_visible") {
 	    			content = stream_item.body.clean_visible;
@@ -407,7 +752,9 @@ int main(int argc, char **argv) {
 	    				exit(-1);
 	    			}
 	    		}
+#endif
 
+#if 0
 			total_content_size += content.size();
 	    		
             		
@@ -417,9 +764,11 @@ int main(int argc, char **argv) {
 			pos_t		e          	= b+content.size();
 			pos_t		p          	= b;
 			pos_t		match_b, match_e;
+#endif
 
 			if (no_search) {
-
+				// TODO: deprecate/delete this vestigial code.
+#if 0
 					// add label to item
 					matches++;
 					sc::Target target;
@@ -441,8 +790,12 @@ int main(int argc, char **argv) {
 					stream_item.body.labels[annotatorID].push_back(label);
 				
 					target_text_map[target.target_id].insert(std::string(b, b+1));
-
+#endif
 			} else {
+#if 1
+				fcontext.check_streamitem(&stream_item);
+				//fcontext.check_content(content);
+#else
 			    string normstr;
 			    std::vector<size_t> offsets;
 			    const char* normtext = NULL;
@@ -457,17 +810,17 @@ int main(int argc, char **argv) {
 				while (names.find_next(match_b, match_e)) {
 				
 					// found
-					#ifdef DEBUG
+#ifdef DEBUG
 				    if (do_normalize) {
-					size_t startoffset = offsets[match_b - normtext];
-					size_t endoffset = offsets[match_e - normtext];
-					clog << "found \"" << std::string(match_b, match_e) << "\" at source offset " << startoffset << ", originally \"" << content.substr(startoffset, endoffset - startoffset) << "\"" << endl;
-				} else {
+						size_t startoffset = offsets[match_b - normtext];
+						size_t endoffset = offsets[match_e - normtext];
+						clog << "found \"" << std::string(match_b, match_e) << "\" at source offset " << startoffset << ", originally \"" << content.substr(startoffset, endoffset - startoffset) << "\"" << endl;
+					} else {
 
-					clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
-					clog << "   pos:" << match_b-b << " \t" << std::string(match_b, match_e) << "\n";
-				}
-					#endif
+						clog << stream_items_count << " \tdoc-id:" << stream_item.doc_id;
+						clog << "   pos:" << match_b-b << " \t" << std::string(match_b, match_e) << "\n";
+					}
+#endif
 				
 				
 					// mapping between canonical form of target and text actually found in document
@@ -506,7 +859,7 @@ int main(int argc, char **argv) {
 					// advance pos to begining of unsearched content
 					p = match_e;
 				}
-
+#endif
 			}
 	    		
 	    		//------------------------------------------------------------------   sc processing
@@ -574,6 +927,8 @@ int main(int argc, char **argv) {
 
 	/////////////////////////////////////////////////////////////////////////// TIMING RESULTS
 	
+#if 0
+	 // TODO: resurrect rusage
 	struct rusage end_rusage;
 	getrusage(RUSAGE_SELF, &end_rusage);
 	struct rusage match_rusage = end_rusage - post_names_rusage;
@@ -581,6 +936,7 @@ int main(int argc, char **argv) {
 	logrusage(clog, match_rusage);
 	clog << "total usage: ";
 	logrusage(clog, end_rusage);
+#endif
 	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
 	double nsec                 = chrono::duration_cast<chrono::nanoseconds>(diff).count();
