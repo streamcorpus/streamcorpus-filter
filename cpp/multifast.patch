@@ -1,0 +1,122 @@
+Index: ahocorasick/ahocorasick.c
+===================================================================
+--- ahocorasick/ahocorasick.c	(revision 31)
++++ ahocorasick/ahocorasick.c	(working copy)
+@@ -285,6 +285,83 @@
+     return match.match_num?&match:0;
+ }
+ 
++void findnext_context_reset(AC_AUTOMATA_t * thiz, AC_FIND_CONTEXT_t* context) {
++	context->current_node = thiz->root;
++	context->base_position = 0;
++}
++
++void findnext_context_settext(AC_AUTOMATA_t * thiz, AC_FIND_CONTEXT_t* context, AC_TEXT_t * text, int keep) {
++	context->text = text;
++	if (!keep) {
++		findnext_context_reset(thiz, context);
++	}
++	context->position = 0;
++}
++
++/* Thread-safe version of ac_automata_findnext allowing multiple
++ * threads to read the same automota. */
++int ac_automata_findnext_r (AC_AUTOMATA_t * thiz, AC_FIND_CONTEXT_t* context, AC_MATCH_t* match) {
++    unsigned long position;
++    AC_NODE_t * current;
++    AC_NODE_t * next;
++	int did_match = 0;
++    
++    if (thiz->automata_open)
++        return 0;
++    
++    if (!context->text)
++        return 0;
++    
++    position = context->position;
++    current = context->current_node;
++
++    /* This is the main search loop.
++     * it must be as lightweight as possible. */
++    while (position < context->text->length)
++    {
++        if (!(next = node_findbs_next(current, context->text->astring[position])))
++        {
++            if (current->failure_node /* we are not in the root node */)
++                current = current->failure_node;
++            else
++                position++;
++        }
++        else
++        {
++            current = next;
++            position++;
++        }
++
++        if (current->final && next)
++        /* We check 'next' to find out if we came here after a alphabet
++         * transition or due to a fail. in second case we should not report
++         * matching because it was reported in previous node */
++        {
++			if (match != NULL) {
++				match->position = position + context->base_position;
++				match->match_num = current->matched_patterns_num;
++				match->patterns = current->matched_patterns;
++			}
++			did_match = 1;
++            break;
++        }
++    }
++
++    /* save status variables */
++    context->current_node = current;
++    context->position = position;
++    
++	if (did_match) {
++		return 1;
++	} else {
++        /* if we came here due to reaching to the end of input text
++         * not a loop break
++         */
++        context->base_position += position;
++		return 0;
++	}
++}
++
+ /******************************************************************************
+  * FUNCTION: ac_automata_reset
+  * reset the automata and make it ready for doing new search on a new text.
+Index: ahocorasick/ahocorasick.h
+===================================================================
+--- ahocorasick/ahocorasick.h	(revision 31)
++++ ahocorasick/ahocorasick.h	(working copy)
+@@ -71,6 +71,18 @@
+ } AC_AUTOMATA_t;
+ 
+ 
++	/* Context for ac_automata_findnext_r threadsafe function which
++	 * allows multiple threads to use a singlue automata.
++	 * Fields substantially as in AC_AUTOMATA_t */
++typedef struct AC_FIND_CONTEXT
++{
++	AC_TEXT_t * text;
++	struct AC_NODE * current_node;
++	unsigned long base_position;
++	unsigned long position;
++} AC_FIND_CONTEXT_t;
++
++
+ AC_AUTOMATA_t * ac_automata_init     (void);
+ AC_STATUS_t     ac_automata_add      (AC_AUTOMATA_t * thiz, AC_PATTERN_t * str);
+ void            ac_automata_finalize (AC_AUTOMATA_t * thiz);
+@@ -83,6 +95,10 @@
+ void            ac_automata_display  (AC_AUTOMATA_t * thiz, char repcast);
+ 
+ 
++void findnext_context_reset(AC_AUTOMATA_t * thiz, AC_FIND_CONTEXT_t* context);
++void findnext_context_settext(AC_AUTOMATA_t * thiz, AC_FIND_CONTEXT_t* context, AC_TEXT_t * text, int keep);
++int ac_automata_findnext_r (AC_AUTOMATA_t * thiz, AC_FIND_CONTEXT_t* context, AC_MATCH_t* match);
++
+ #ifdef __cplusplus
+ }
+ #endif
