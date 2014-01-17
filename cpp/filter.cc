@@ -194,6 +194,9 @@ class FilterContext {
 			exit(1);
 		};
 		names_size++;
+		name_min = std::min(name_min, name.size());
+		name_max = std::max(name_max, name.size());
+		total_name_length += name.size();
 	}
 
 	void add_name(const char* data, size_t size) {
@@ -221,6 +224,10 @@ class FilterContext {
 			exit(1);
 		};
 		names_size++;
+
+		name_min = std::min(name_min, size);
+		name_max = std::max(name_max, size);
+		total_name_length += size;
 	}
 #else
 	void add_name(const string& name) {
@@ -248,7 +255,6 @@ class FilterContext {
 					add_name(names_data + startpos, pos - startpos);
 					//names.insert(names_data + startpos, names_data + pos);
 				}
-				names_size++;
 				startpos = pos + 1;
 			}
 			pos++;
@@ -269,6 +275,8 @@ class FilterContext {
 			cerr << "\tnames_path: " << names_path << endl;
 			cerr << "\tnames_begin_path: " << names_begin_path << endl;
 		}
+
+		size_t names_size; // yes, this shadows FilterContext.names_size
 
 		/////////////////////////////////////////////////  READ NAMES MMAP
 
@@ -294,12 +302,6 @@ class FilterContext {
 				add_name(names_data+names_begin[i], names_begin[i+1]-names_begin[i]);
 				//names.insert(names_data+names_begin[i], names_data+names_begin[i+1]);
 			}
-
-			// names stats
-			size_t sz =  names_begin[i+1] - names_begin[i];
-			name_min = std::min(name_min,sz);
-			name_max = std::max(name_max,sz);
-			total_name_length += sz;
 		}
 		// TODO: munmap() and close!
 
@@ -361,13 +363,14 @@ class FilterContext {
 	}
 
 	//void check_content(const string& content) {
-	void check_streamitem(sc::StreamItem* stream_item) {
+	// return true if any name matches the content
+	bool check_streamitem(sc::StreamItem* stream_item) {
 
 		string content;
 
 		int err = get_best_content(*stream_item, &content);
 		if (err != 0) {
-			return;
+			return false;
 		}
 
 		total_content_size += content.size();
@@ -385,6 +388,8 @@ class FilterContext {
 			normtext = content.data();
 			textlen = content.size();
 		}
+
+		bool any_match = false;
 #if DIRECT_AC
 		AC_TEXT_t tmp_text;
 		tmp_text.astring = normtext;
@@ -400,6 +405,7 @@ class FilterContext {
 		int did_match = names.find_next(&match_b, &match_e);
 #endif
 		while (did_match) {
+			any_match = true;
 			matches++;
 	
 			// TODO: load and use actual target id
@@ -416,9 +422,16 @@ class FilterContext {
 			sc::Offset offset;
 #if DIRECT_AC
 			offset.type = sc::OffsetType::BYTES;
-					
-			size_t startpos = offsets[match.position - match.patterns[0].length];
-			size_t endpos = offsets[match.position];
+
+			size_t startpos, endpos;
+			if (do_normalize) {
+				startpos = offsets[match.position - match.patterns[0].length];
+				endpos = offsets[match.position];
+			} else {
+				startpos = match.position - match.patterns[0].length;
+				endpos = match.position;
+			}
+
 			offset.first = startpos;
 			offset.length = endpos - startpos;
 				
@@ -448,6 +461,8 @@ class FilterContext {
 #endif
 		}
 		// TODO: copy the rest of the code here
+		// TODO: add ratings to document noting found matches
+		return any_match;
 	}
 
 }; // FilterContext
@@ -485,6 +500,10 @@ int main(int argc, char **argv) {
 
 	 FilterContext fcontext;
 	 fcontext.text_source = text_source;
+	 fcontext.verbose = verbose;
+	 fcontext.do_normalize = do_normalize;
+	 fcontext.max_names = max_names;
+	 
 	 // Parse command line options
 	 po::variables_map vm;
 	 po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -765,9 +784,11 @@ int main(int argc, char **argv) {
 			pos_t		p          	= b;
 			pos_t		match_b, match_e;
 #endif
+			bool any_match = false;
 
 			if (no_search) {
 				// TODO: deprecate/delete this vestigial code.
+				any_match = true;
 #if 0
 					// add label to item
 					matches++;
@@ -793,7 +814,7 @@ int main(int argc, char **argv) {
 #endif
 			} else {
 #if 1
-				fcontext.check_streamitem(&stream_item);
+				any_match = fcontext.check_streamitem(&stream_item);
 				//fcontext.check_content(content);
 #else
 			    string normstr;
@@ -859,9 +880,11 @@ int main(int argc, char **argv) {
 					// advance pos to begining of unsearched content
 					p = match_e;
 				}
-#endif
+#endif  /* code moved to FilterContext */
 			}
 	    		
+#if 0
+			// TODO: resurrect this code adding ratings to stream item
 	    		//------------------------------------------------------------------   sc processing
 			
 	    		// Add the rating object for each target that matched in a document
@@ -889,7 +912,16 @@ int main(int argc, char **argv) {
 	    			// Push the new rating onto the rating list for this annotator.
 	    			stream_item.ratings[annotatorID].push_back(rating);
 	    		}
-	    		
+#endif
+
+#if 1
+				if ((any_match && (! negate)) ||
+					((! any_match) && negate)) {
+					stream_item.write(protocolOutput.get());
+					written++;
+				}
+#else
+				// old less clear logic
 	    		if (not negate) { 
 	    		        // Write stream_item to stdout if it had any ratings
 	    		        if (target_text_map.size() > 0) {
@@ -902,28 +934,34 @@ int main(int argc, char **argv) {
 	    			stream_item.write(protocolOutput.get());
 	    			written++;
 	    		}
+#endif
 	    		
 	    		stream_items_count++;
 
-			if (stream_items_count >= max_items)  throw att::TTransportException();
+				if (stream_items_count >= max_items) {
+					clog << "hit item limit at " << stream_items_count << endl;
+					break;
+				}// throw att::TTransportException();
 	    	}
 
 		//----------------------------------------------------------------------------  items read cycle exit
 
 		//catch (att::TTransportException e) {
 		catch (...) {
-			// Vital to flush the buffered output or you will lose the last one
-			transportOutput->flush();
-			// NOTE: these log lines are checked in test_filter.py
-			clog << "Total stream items processed: " << stream_items_count << endl;
-			clog << "Total matches: "                << matches << endl;
-			clog << "Total stream items written: "   << written << endl;
-			if (negate) {
-				clog << " (Note, stream items written were non-matching ones)" << endl;
-			}
+			clog << "exception" << endl;
 			break;
 		}
-	}
+	 } // while(true) loop over items
+
+	 // Vital to flush the buffered output or you will lose the last one
+	 transportOutput->flush();
+	 // NOTE: these log lines are checked in test_filter.py
+	 clog << "Total stream items processed: " << stream_items_count << endl;
+	 clog << "Total matches: "                << matches << endl;
+	 clog << "Total stream items written: "   << written << endl;
+	 if (negate) {
+		 clog << " (Note, stream items written were non-matching ones)" << endl;
+	 }
 
 	/////////////////////////////////////////////////////////////////////////// TIMING RESULTS
 	

@@ -9,6 +9,7 @@ check that certain log messages appear
 """
 
 
+import argparse
 import logging
 import os
 import re
@@ -53,7 +54,13 @@ grep 'Total stream items written: 664' /tmp/${USER}_filterlog.txt
 
 '''
     err = 0
-    logging.basicConfig(level=logging.INFO)
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--verbose', action='store_true', default=False)
+    options = ap.parse_args()
+    if options.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     indatapath = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data/nametesttexts.sc.xz'))
     rawin = None
     with lzma.open(indatapath, 'rb') as xzin:
@@ -62,7 +69,7 @@ grep 'Total stream items written: 664' /tmp/${USER}_filterlog.txt
     # ../data/dumbnames.txt
     namespath = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data/dumbnames.txt'))
     binpath = os.path.abspath(os.path.join(os.path.dirname(__file__), 'filter-multifast'))
-    cmd = [binpath, '--normalize', '--names=' + namespath]
+    cmd = [binpath, '--normalize', '--names=' + namespath, '--verbose']
     logging.info('running %r', cmd)
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)
     stdoutdata, stderrdata = p.communicate(rawin)
@@ -80,6 +87,10 @@ grep 'Total stream items written: 664' /tmp/${USER}_filterlog.txt
     err = err or check_re(stderrdata, out_re, '664')
     if err == 0:
         sys.stderr.write('OK\n')
+    else:
+        sys.stderr.write('underlying stderr:\n\n')
+        sys.stderr.write(stderrdata);
+        sys.stderr.write('\n\n')
     sys.exit(err)
 
 
