@@ -1,5 +1,7 @@
 // Search algo unit tests
 
+#include <assert.h>
+
 #include "check.h"
 #include "search.h"
 
@@ -49,8 +51,8 @@ int test_normalize() {
 "\nOther times, special characters intervene John\u205F\u200ASmith\n",
     "\nAny maybe we even want to match no spaces:  John Smithjr.\n",
     //"J\xc3\xb6hn   \t  \tw\xc3\x85t\tSm\xc3\xaeth",
-    "J\xc3\xb6hn   \t  \t\tSm\xc3\xaeth", // J&ouml;hn Sm&iacute;th
-    "J\xc3\xb8hn \tSmith", // Jo/hn Smith
+    "space J\xc3\xb6hn   \t  \t\tSm\xc3\xaeth space", // J&ouml;hn Sm&iacute;th
+    "space J\xc3\xb8hn \tSmith space ", // Jo/hn Smith
     "my sister was once bitten by a m\xc3\xb8\xc3\xb8se, no reeli!"
     };
 
@@ -64,6 +66,8 @@ int test_normalize() {
 	size_t normlen;
 	string normstr;
 	std::vector<size_t> offsets;
+	assert(normstr.empty());
+	assert(offsets.empty());
 	normalize(content, &normstr, &offsets);
 	const char* normtext = normstr.data();
 	normlen = normstr.size();

@@ -25,6 +25,7 @@ struct  names_t::names_impl {
 	void set_content (pos_t b_, pos_t e_)   { b=b_;  e=e_; p=b; };
 
 	bool find_next   (pos_t& match_b, pos_t& match_e) {
+		// TODO: this is buggy. it doesn't find the pattern at the beginning or end of a content string. OR, this demo code should just be retired.
 		for (; p <= e;  ++p)  {
 			for(size_t i=0;  i<B.size();  ++i) {
 				if ((E[i] - B[i]  < e-p)  &&  std::equal(B[i], E[i], p)) {
