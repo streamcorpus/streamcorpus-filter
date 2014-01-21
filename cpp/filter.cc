@@ -71,6 +71,9 @@
 #include "normalize.h"
 
 
+static const string ANNOTATOR_ID = "streamcorpus-filter-faststrstr";
+
+
 #ifdef GPERF
 // Optionally use google performance sampler:
 // http://code.google.com/p/gperftools/
@@ -234,7 +237,6 @@ class FilterContext {
 	bool do_normalize;
 	bool verbose;
 	size_t max_names;
-	sc::AnnotatorID annotatorID;
 
 #if 1
 #define DIRECT_AC 1
@@ -395,8 +397,6 @@ class FilterContext {
 	    unsigned int count = 0;
 	    for(auto& pr : filter_names.name_to_target_ids) {
 		const string& name = pr.first;
-		//const std::vector<string>& targets = pr.second;
-		// TODO: record targets!
 		TargetIdList* matchtargets = new TargetIdList(pr.second);
 		clog << name << "\t" << matchtargets->size() << endl;
 
@@ -560,6 +560,9 @@ class FilterContext {
 		pos_t match_b, match_e;
 		int did_match = names.find_next(&match_b, &match_e);
 #endif
+
+		set<string> target_ids;
+
 		while (did_match) {
 		    if (verbose && !any_match) {
 			// first match for stream_item
@@ -568,24 +571,39 @@ class FilterContext {
 			any_match = true;
 #if DIRECT_AC
 			matches += match.match_num;
-			if (verbose) {
+
 			for (unsigned int i = 0; i < match.match_num; ++i) {
 			    TargetIdList* tids = (TargetIdList*)(match.patterns[i].rep.stringy);
 			    if (tids != NULL) {
-				clog << "[" << (match.position - match.patterns[i].length) << "] " << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << "\t";
-				for (string& targetid : *tids) {
-				    clog << targetid << " ";
+				if (verbose) {
+				    clog << "[" << (match.position - match.patterns[i].length) << "] " << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << "\t";
 				}
-				clog << endl;
+				for (string& targetid : *tids) {
+				    target_ids.insert(targetid);
+				    if (verbose) {
+					clog << targetid << " ";
+				    }
+				}
+				if (verbose) {
+				    clog << endl;
+				}
 			    } else {
-				clog << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << " no targets\n";
+				if (verbose) {
+				    clog << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << " no targets\n";
+				}
 			    }
-			}
 			}
 #else
 			matches++;
 #endif
-	
+
+#if 0
+			// We don't (currently) record the per mention
+			// label annotations of the things we match,
+			// just the document scope Rating objects
+			// later. But we might want to bring this back
+			// someday.
+			//
 			// TODO: load and use actual target id
 			// Add the target identified to the label.  Note this 
 			// should be identical to what is in the rating 
@@ -627,10 +645,11 @@ class FilterContext {
 #endif
 				
 			// Add new label to the list of labels.
-			stream_item->body.labels[annotatorID].push_back(label);
+			stream_item->body.labels[ANNOTATOR_ID].push_back(label);
 				
 			// Map of actual text mapped 
 			//target_text_map[target.target_id].insert(std::string(match_b, match_e));
+#endif /* No per-mention labels */
 
 #if DIRECT_AC
 			did_match = ac_automata_findnext_r(atm, &findcontext, &match);
@@ -638,8 +657,25 @@ class FilterContext {
 			did_match = names.find_next(&match_b, &match_e);
 #endif
 		}
-		// TODO: copy the rest of the code here
-		// TODO: add ratings to document noting found matches
+
+		// Set document "Rating" objects to note that a
+		// target_id was found.
+		if (!target_ids.empty()) {
+		    vector<sc::Rating> ratings;
+		    sc::Annotator annotator;
+		    annotator.annotator_id = ANNOTATOR_ID;
+		    for (const string& target_id : target_ids) {
+			sc::Target targ;
+			targ.target_id = target_id;
+
+			sc::Rating rat;
+			rat.annotator = annotator;
+			rat.target = targ;
+			ratings.push_back(rat);
+		    }
+		    stream_item->ratings[ANNOTATOR_ID] = ratings;
+		}
+
 		return any_match;
 	}
 
@@ -870,24 +906,13 @@ int main(int argc, char **argv) {
 
 	 fcontext.compile_names();
 
-	 //////////////////////////////////////////////////////////////////////////  CREATE ANNOTATOR OBJECT
-
-
-	 // Create annotator object
-	 sc::Annotator annotator;
-	 sc::AnnotatorID annotatorID;
-	 annotatorID = "example-matcher-v0.1";
-
-	 // Annotator identifier
-	 annotator.annotator_id = "example-matcher-v0.1";
-
 	 // Time this annotator was started
 	 sc::StreamTime streamtime;
 	 time_t seconds;
 	 seconds = time(NULL);
 	 streamtime.epoch_ticks = seconds;
 	 streamtime.zulu_timestamp = ctime(&seconds);
-	 annotator.__set_annotation_time(streamtime);
+	 //annotator.__set_annotation_time(streamtime);
 
 	 //////////////////////////////////////////////////////////////////////////// OPEN IN / OUT SC STREAMS
 
@@ -949,36 +974,6 @@ int main(int argc, char **argv) {
 
 			any_match = fcontext.check_streamitem(&stream_item);
 	    		
-#if 0
-			// TODO: resurrect this code adding ratings to stream item
-	    		//------------------------------------------------------------------   sc processing
-			
-	    		// Add the rating object for each target that matched in a document
-	    		for ( auto match=target_text_map.begin(); match!=target_text_map.end(); ++match) {
-	    			// Construct new rating
-	    			sc::Rating rating;
-	    			
-	    			// Flag that it contained a mention
-	    			rating.__set_contains_mention(true);
-	    			
-	    			// Construct a target object for each match
-	    			sc::Target target;
-	    			target.target_id = match->first;
-	    			rating.target = target;
-	    			
-	    			// Copy all the strings that matched into the mentions field
-	    			copy(match->second.begin(), match->second.end(), back_inserter(rating.mentions));
-	    			
-	    			// Subtle but vital, we need to do the following for proper serialization.
-	    			rating.__isset.mentions = true;
-	    			
-	    			// Add the annotator from above.
-	    			rating.annotator = annotator;
-	    			
-	    			// Push the new rating onto the rating list for this annotator.
-	    			stream_item.ratings[annotatorID].push_back(rating);
-	    		}
-#endif
 
 				if ((any_match && (! negate)) ||
 					((! any_match) && negate)) {

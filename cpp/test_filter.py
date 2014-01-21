@@ -13,9 +13,11 @@ check that certain log messages appear
 
 
 import argparse
+from itertools import imap
 import logging
 import os
 import re
+from cStringIO import StringIO
 import subprocess
 import sys
 
@@ -31,6 +33,9 @@ except:
         lzma = None
 
 assert lzma
+
+
+from streamcorpus import Chunk
 
 
 def check_re(data, pattern, expected):
@@ -52,7 +57,7 @@ processed_re = re.compile(r'Total stream items processed: (\d+)')
 out_re = re.compile(r'Total stream items written: (\d+)')
 
 
-def test_cmd(cmd, rawin):
+def test_cmd(cmd, rawin, stdout_check_function=None):
     err = 0
     cmdstr = ' '.join(map(repr, cmd))
     logging.info('running: %s', cmdstr)
@@ -65,16 +70,49 @@ def test_cmd(cmd, rawin):
         logging.error('filter exited with status %r', p.returncode)
         err = 1
     #errlines = stderrdata.splitlines()
-    err2 = check_re(stderrdata, processed_re, '684')
+    err = check_re(stderrdata, processed_re, '684') or err
 
-    err3 = check_re(stderrdata, out_re, '664')
+    err = check_re(stderrdata, out_re, '664') or err
 
-    err = err or err2 or err3
+    if stdout_check_function is not None:
+        err = stdout_check_function(stdoutdata) or err
 
     if err != 0:
         sys.stderr.write('FAILURE underlying stderr:\n\n')
         sys.stderr.write(stderrdata);
         sys.stderr.write('\n\ncmd:\n{0}\n'.format(cmdstr))
+    return err
+
+
+class lazy(object):
+    def __init__(self, f):
+        self.f = f
+    def __str__(self):
+        return str(self.f())
+    def __repr__(self):
+        return repr(self.f())
+
+
+def check_output_for_ratings(stdoutdata):
+    fd = StringIO(stdoutdata)
+    ch = Chunk(file_obj=fd)
+    sicount = 0
+    rcount = 0
+    for si in ch:
+        sicount += 1
+        ratings = si.ratings["streamcorpus-filter-faststrstr"]
+        rcount += len(ratings)
+        if len(ratings) != 1:
+            logging.debug('%s %r', si.doc_id, lazy(lambda: map(lambda x: x.target.target_id, ratings)))
+
+    logging.debug('got %s ratings on %s items', rcount, sicount)
+    err = 0
+    if sicount != 664:
+        logging.error('expeted %s stream items, got %s', 664, sicount)
+        err = 1
+    if rcount != 672:
+        logging.error('expeted %s stream item ratings, got %s', 672, rcount)
+        err = 1
     return err
 
 
@@ -106,7 +144,7 @@ grep 'Total stream items written: 664' /tmp/${USER}_filterlog.txt
 
     err1 = test_cmd([binpath, '--normalize', '--names=' + namespath, '--verbose'], rawin)
     err2 = test_cmd([binpath, '--normalize', '--names=' + namespath, '--verbose', "--threads=2"], rawin)
-    err1 = test_cmd([binpath, '--normalize', '--names-scf=' + namesscfpath, '--verbose'], rawin)
+    err1 = test_cmd([binpath, '--normalize', '--names-scf=' + namesscfpath, '--verbose'], rawin, check_output_for_ratings)
 
     err = err1 or err2
 

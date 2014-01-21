@@ -52,7 +52,7 @@ filter-multifast:	${FILTER_MULTIFAST_OBJS}
 UNIT_OBJS = $(MULTIFAST_OBJS) unit.o
 
 unit-multifast:	$(UNIT_OBJS)
-	$(CXX) $(CXXFLAGS) ${UNIT_OBJS} $(LDFLAGS) -licuuc -lthrift -lboost_program_options -o $@
+	$(CXX) $(CXXFLAGS) $(UNIT_OBJS) $(LDFLAGS) -licuuc -lthrift -lboost_program_options -o $@
 
 clean:
 	rm -rf ${FILTER_MULTIFAST_OBJS}
