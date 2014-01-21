@@ -129,6 +129,7 @@ $(filtername_thrift_cpp): filternames.thrift
 
 multifast.o:       $(MULTIFAST)/ahocorasick/build/libahocorasick.a
 multifast.o:       CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
+filter.o:       CXXFLAGS += -I $(MULTIFAST)/ahocorasick/
 %-multifast:       LDFLAGS  += -L $(MULTIFAST)/ahocorasick/build/
 %-multifast:       LDLIBS   += -l ahocorasick
 

@@ -33,7 +33,7 @@ all:	filter-multifast
 multifast multifast/ahocorasick/node.c multifast/ahocorasick/ahocorasick.c multifast/ahocorasick/ahocorasick.h:
 	svn co svn://svn.code.sf.net/p/multifast/code/trunk multifast
 
-filternames_constants.cpp filternames_types.cpp:	filternames.thrift
+filternames_constants.cpp filternames_types.cpp filternames_types.h filternames_constants.h:	filternames.thrift
 	$(THRIFT)  --out . --gen cpp  filternames.thrift
 
 streamcorpus_constants.o:	streamcorpus/cpp/streamcorpus_constants.cpp
@@ -42,12 +42,26 @@ streamcorpus_constants.o:	streamcorpus/cpp/streamcorpus_constants.cpp
 streamcorpus_types.o:	streamcorpus/cpp/streamcorpus_types.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $^
 
-FILTER_MULTIFAST_OBJS = multifast.o normalize.o filter.o multifast/ahocorasick/node.o multifast/ahocorasick/ahocorasick.o filternames_constants.o filternames_types.o streamcorpus_constants.o streamcorpus_types.o
+MULTIFAST_OBJS = multifast.o normalize.o multifast/ahocorasick/node.o multifast/ahocorasick/ahocorasick.o filternames_constants.o filternames_types.o streamcorpus_constants.o streamcorpus_types.o
+
+FILTER_MULTIFAST_OBJS = $(MULTIFAST_OBJS) filter.o
 
 filter-multifast:	${FILTER_MULTIFAST_OBJS}
 	$(CXX) $(CXXFLAGS) ${FILTER_MULTIFAST_OBJS} $(LDFLAGS) -licuuc -lthrift -lboost_program_options -o $@
+
+UNIT_OBJS = $(MULTIFAST_OBJS) unit.o
+
+unit-multifast:	$(UNIT_OBJS)
+	$(CXX) $(CXXFLAGS) ${UNIT_OBJS} $(LDFLAGS) -licuuc -lthrift -lboost_program_options -o $@
 
 clean:
 	rm -rf ${FILTER_MULTIFAST_OBJS}
 
 multifast.o:	multifast/ahocorasick/ahocorasick.h
+filter.o:	filternames_types.h filternames_constants.h
+
+test:	filter-multifast unit-multifast .PHONY
+	./unit-multifast
+	python test_filter.py
+
+.PHONY:

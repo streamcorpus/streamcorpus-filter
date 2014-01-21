@@ -28,6 +28,11 @@
 #include "streamcorpus_constants.h"
 	namespace sc = streamcorpus;
 
+// THRIFT -- FILTERNAMES
+#include "filternames_types.h"
+#include "filternames_constants.h"
+	namespace fn = filternames;
+
 
 // STD
 #include <iostream>
@@ -74,8 +79,8 @@
 #define GPERF_START() ProfilerStart("fm.prof")
 #else
 #define GPERF_START()
-#define ProfilerStop
-#define ProfilerFlush
+#define ProfilerStop()
+#define ProfilerFlush()
 #endif
 
 
@@ -218,6 +223,9 @@ static void logrusage(std::ostream& out, const struct rusage& ru) {
 }
 
 
+typedef std::vector<string> TargetIdList;
+
+
 class FilterContext {
 	public:
 	string text_source;
@@ -254,20 +262,34 @@ class FilterContext {
 	};
 
 #if DIRECT_AC
-	void add_name(const string& name) {
+    bool _sizeok(size_t size) {
+	if (size > AC_PATTRN_MAX_LENGTH) {
+#ifdef DEBUG 
+	    cerr << "\twarning: name of length " << size << " skipped\n";
+#endif
+	    return false;
+	}
+	return true;
+    }
+
+    void _add_stats(size_t size) {
+	names_size++; // count
+	name_min = std::min(name_min, size);
+	name_max = std::max(name_max, size);
+	total_name_length += size;
+    }
+
+    void add_name(const string& name, void* targets=NULL) {
 		if (name.empty()) {
 			return;
 		}
-		if (name.size() > AC_PATTRN_MAX_LENGTH) {
-#ifdef DEBUG 
-			cerr << "\twarning: name of length " << name.size() << " skipped\n";
-#endif
-			return;
-		}
+		if (!_sizeok(name.size())) { return; }
 
 		AC_PATTERN_t tmp_pattern;
 		tmp_pattern.astring = name.data();
 		tmp_pattern.length = name.size();
+		// rep.stringy is our data which will be returned to us in match
+		tmp_pattern.rep.stringy = (const char*)targets;
 		
 		AC_STATUS_t rc = ac_automata_add (atm, &tmp_pattern);
 		if (rc == ACERR_DUPLICATE_PATTERN) {
@@ -280,24 +302,18 @@ class FilterContext {
 				"\n\tfor string: (" << name <<  ")\n";
 			exit(1);
 		};
-		names_size++;
-		name_min = std::min(name_min, name.size());
-		name_max = std::max(name_max, name.size());
-		total_name_length += name.size();
+		_add_stats(name.size());
 	}
 
 	void add_name(const char* data, size_t size) {
 		if (data == NULL) { return; }
-		if (size >  AC_PATTRN_MAX_LENGTH) {
-#ifdef DEBUG 
-			cerr << "\twarning: name of length " << size << " skipped\n";
-#endif
-			return;
-		}
+		if (!_sizeok(size)) { return; }
 
 		AC_PATTERN_t tmp_pattern;
 		tmp_pattern.astring = data;
 		tmp_pattern.length = size;
+		// rep.{stringy,number} are our data returned to us in match
+		tmp_pattern.rep.stringy = NULL; // const char*
 		
 		AC_STATUS_t rc = ac_automata_add (atm, &tmp_pattern);
 		if (rc == ACERR_DUPLICATE_PATTERN) {
@@ -310,11 +326,7 @@ class FilterContext {
 				"\n\tfor string: (" << string(data, size) <<  ")\n";
 			exit(1);
 		};
-		names_size++;
-
-		name_min = std::min(name_min, size);
-		name_max = std::max(name_max, size);
-		total_name_length += size;
+		_add_stats(size);
 	}
 #else
 	void add_name(const string& name) {
@@ -328,10 +340,12 @@ class FilterContext {
 		names_size = 0;
 		char* names_data  = mmap_read<char>(names_simple_path.c_str(), names_mem);
 
+		unsigned int count = 0;
 		size_t startpos = 0;
 		size_t pos = 0;
 		while (pos < names_mem) {
 			if (names_data[pos] == '\n') {
+			    count++;
 				if (do_normalize) {
 					string raw(names_data + startpos, pos - startpos);
 					string normed;
@@ -343,11 +357,66 @@ class FilterContext {
 					//names.insert(names_data + startpos, names_data + pos);
 				}
 				startpos = pos + 1;
+
+				if (count >= max_names) {
+				    clog << "hit max_names " << max_names << endl;
+				    break;
+				}
 			}
 			pos++;
 		}
 		// TODO: munmap() and close!
 		return 0;
+	}
+
+	int read_scf_names(const string& scf_path) {
+	    fn::FilterNames filter_names;
+
+	    {
+		int scf_fh = open(scf_path.c_str(), O_RDONLY);
+		if (scf_fh < 0) {
+		    cerr << "could not open name scf\n";
+		    perror(scf_path.c_str());
+		    return -1;
+		}
+
+		boost::shared_ptr<att::TFDTransport> innerTransportScf(new att::TFDTransport(scf_fh));
+		boost::shared_ptr<att::TBufferedTransport> transportScf(new att::TBufferedTransport(innerTransportScf));
+		boost::shared_ptr<atp::TBinaryProtocol> protocolScf(new atp::TBinaryProtocol(transportScf));
+		transportScf->open();
+
+		// load it all into memory here
+		filter_names.read(protocolScf.get());
+
+		//transportScf->close();
+		close(scf_fh);
+	    }
+
+	    unsigned int count = 0;
+	    for(auto& pr : filter_names.name_to_target_ids) {
+		const string& name = pr.first;
+		//const std::vector<string>& targets = pr.second;
+		// TODO: record targets!
+		TargetIdList* matchtargets = new TargetIdList(pr.second);
+		clog << name << "\t" << matchtargets->size() << endl;
+
+		count++;
+		if (do_normalize) {
+		    string normed;
+		    normalize(name, &normed, NULL);
+		    add_name(normed, matchtargets);
+		} else {
+		    add_name(name, matchtargets);
+		}
+
+		if (count >= max_names) {
+		    clog << "hit max_names " << max_names << endl;
+		    break;
+		}
+	    }
+
+
+	    return 0;
 	}
 
 	int read_mmap_names(const string& names_path) {
@@ -492,8 +561,30 @@ class FilterContext {
 		int did_match = names.find_next(&match_b, &match_e);
 #endif
 		while (did_match) {
+		    if (verbose && !any_match) {
+			// first match for stream_item
+			clog << stream_item->doc_id << endl;
+		    }
 			any_match = true;
+#if DIRECT_AC
+			matches += match.match_num;
+			if (verbose) {
+			for (unsigned int i = 0; i < match.match_num; ++i) {
+			    TargetIdList* tids = (TargetIdList*)(match.patterns[i].rep.stringy);
+			    if (tids != NULL) {
+				clog << "[" << (match.position - match.patterns[i].length) << "] " << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << "\t";
+				for (string& targetid : *tids) {
+				    clog << targetid << " ";
+				}
+				clog << endl;
+			    } else {
+				clog << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << " no targets\n";
+			    }
+			}
+			}
+#else
 			matches++;
+#endif
 	
 			// TODO: load and use actual target id
 			// Add the target identified to the label.  Note this 
@@ -682,6 +773,7 @@ int main(int argc, char **argv) {
 	 string		names_path	/*= "data/names.mmap"*/;	// default location of names mmap
 	 string		names_begin_path= ""; 			// default will be "data/names_begin.mmap";
 	 string          names_simple_path;
+	 string names_scf_path;
 	 bool		negate		= false;
 	 size_t		max_names	= numeric_limits<size_t>::max();
 	 size_t		max_items	= numeric_limits<size_t>::max();
@@ -697,7 +789,8 @@ int main(int argc, char **argv) {
 		 ("text_source,t", po::value<string>(&text_source),  "text source in stream item")
 		 ("negate,n",	po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
 		 ("names-mmap,n", po::value<string>(&names_path), "path to names mmap file (and names_begin")
-		 ("names,n", po::value<string>(&names_simple_path), "path to names mmap file (and names_begin")
+		 ("names-scf,n", po::value<string>(&names_scf_path), "path to names scf file")
+		 ("names,n", po::value<string>(&names_simple_path), "path to names text file")
 		 ("max-names,N", po::value<size_t>(&max_names), "maximum number of names to use")
 		 ("max-items,I", po::value<size_t>(&max_items), "maximum number of items to process")
 		 ("threads,j", po::value<int>(&threads), "number of threads to run (default 1)")
@@ -706,12 +799,6 @@ int main(int argc, char **argv) {
 		 ("no-search",	"do not search - pass through every item")
 	 ;
 
-	 FilterContext fcontext;
-	 fcontext.text_source = text_source;
-	 fcontext.verbose = verbose;
-	 fcontext.do_normalize = do_normalize;
-	 fcontext.max_names = max_names;
-	 
 	 // Parse command line options
 	 po::variables_map vm;
 	 po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -725,21 +812,26 @@ int main(int argc, char **argv) {
 	 //if (vm.count("no-search"))	no_search=true;
 	 if (vm.count("normalize"))	do_normalize=true;
 
+	 FilterContext fcontext;
+	 fcontext.text_source = text_source;
+	 fcontext.verbose = verbose;
+	 fcontext.do_normalize = do_normalize;
+	 fcontext.max_names = max_names;
 
 	 if (!names_path.empty()) {
-	 // construct names_begin_path
-	 size_t ext_pos = names_path.rfind(".mmap");
-	 copy(names_path.begin(), names_path.begin()+ext_pos, back_inserter(names_begin_path));
-	 names_begin_path.append("_begin.mmap");
+	     // construct names_begin_path
+	     size_t ext_pos = names_path.rfind(".mmap");
+	     copy(names_path.begin(), names_path.begin()+ext_pos, back_inserter(names_begin_path));
+	     names_begin_path.append("_begin.mmap");
 
-	 if (verbose) {
+	     if (verbose) {
 		 cerr << "\tnames_path: " << names_path << endl;
 		 cerr << "\tnames_begin_path: " << names_begin_path << endl;
-	 }
+	     }
 	 } else if (!names_simple_path.empty()) {
-
+	 } else if (!names_scf_path.empty()) {
 	 } else {
-		 cerr << "need one of --names-mmap or --names" << endl;
+		 cerr << "need one of --names-mmap, --names-scf, or --names" << endl;
 		 return 1;
 	 }
 
@@ -770,6 +862,8 @@ int main(int argc, char **argv) {
 
 	 if (!names_simple_path.empty()) {
 		 fcontext.read_simple_names(names_simple_path);
+	 } else if (!names_scf_path.empty()) {
+		 fcontext.read_scf_names(names_scf_path);
 	 } else {
 		 fcontext.read_mmap_names(names_path);
 	 }

@@ -5,6 +5,9 @@
 Achieve this:
 xz -d < ../data/nametesttexts.sc.xz | (./filter-multifast --normalize --names=../data/dumbnames.txt 2> /tmp/${USER}_filterlog.txt) | xz > /tmp/${USER}_filter.sc.xz 
 
+or
+--names-scf=../data/test-name-strings.scf
+
 check that certain log messages appear
 """
 
@@ -51,7 +54,8 @@ out_re = re.compile(r'Total stream items written: (\d+)')
 
 def test_cmd(cmd, rawin):
     err = 0
-    logging.info('running %r', cmd)
+    cmdstr = ' '.join(map(repr, cmd))
+    logging.info('running: %s', cmdstr)
     p = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)
     stdoutdata, stderrdata = p.communicate(rawin)
     if not stdoutdata:
@@ -70,7 +74,7 @@ def test_cmd(cmd, rawin):
     if err != 0:
         sys.stderr.write('FAILURE underlying stderr:\n\n')
         sys.stderr.write(stderrdata);
-        sys.stderr.write('\n\n')
+        sys.stderr.write('\n\ncmd:\n{0}\n'.format(cmdstr))
     return err
 
 
@@ -97,11 +101,12 @@ grep 'Total stream items written: 664' /tmp/${USER}_filterlog.txt
     assert rawin
     # ../data/dumbnames.txt
     namespath = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data/dumbnames.txt'))
+    namesscfpath = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data/test-name-strings.scf'))
     binpath = os.path.abspath(os.path.join(os.path.dirname(__file__), 'filter-multifast'))
-    cmd = [binpath, '--normalize', '--names=' + namespath, '--verbose']
 
-    err1 = test_cmd(cmd, rawin)
+    err1 = test_cmd([binpath, '--normalize', '--names=' + namespath, '--verbose'], rawin)
     err2 = test_cmd([binpath, '--normalize', '--names=' + namespath, '--verbose', "--threads=2"], rawin)
+    err1 = test_cmd([binpath, '--normalize', '--names-scf=' + namesscfpath, '--verbose'], rawin)
 
     err = err1 or err2
 
