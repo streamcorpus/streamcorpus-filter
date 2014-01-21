@@ -2,7 +2,21 @@ Index: ahocorasick/ahocorasick.c
 ===================================================================
 --- ahocorasick/ahocorasick.c	(revision 31)
 +++ ahocorasick/ahocorasick.c	(working copy)
-@@ -285,6 +285,83 @@
+@@ -68,6 +68,13 @@
+  * AC_PATTERN_t * patt: the pointer to added pattern
+  * RETUERN VALUE: AC_ERROR_t
+  * the return value indicates the success or failure of adding action
++ *
++ * The pointer to the AC_PATTERN_t is not kept (may be a stack local
++ * of the caller). The astring, length, and rep fields are copied out
++ * of it. (This means that the underlying const char* pointers for
++ * astring and rep.stringy _are_ kept.) None of these pointers is
++ * free()d on _release(). The copied pattern fields are returned later
++ * in the 'patterns' array in AC_MATCH_t.
+ ******************************************************************************/
+ AC_STATUS_t ac_automata_add (AC_AUTOMATA_t * thiz, AC_PATTERN_t * patt)
+ {
+@@ -285,6 +292,83 @@
      return match.match_num?&match:0;
  }
  
