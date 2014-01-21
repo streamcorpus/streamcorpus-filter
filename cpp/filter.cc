@@ -383,7 +383,9 @@ class FilterContext {
 	    for(auto& pr : filter_names.name_to_target_ids) {
 		const string& name = pr.first;
 		TargetIdList* matchtargets = new TargetIdList(pr.second);
-		clog << name << "\t" << matchtargets->size() << endl;
+		if (verbose) {
+		    clog << name << "\t" << matchtargets->size() << endl;
+		}
 
 		count++;
 		if (do_normalize) {
@@ -453,8 +455,6 @@ class FilterContext {
 		ac_automata_finalize(atm);
 
 		// and log stuff about it
-		struct rusage post_names_rusage;
-		getrusage(RUSAGE_SELF, &post_names_rusage);
 		auto diff = chrono::high_resolution_clock ::now() - start;
 		double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
 		clog << "Names: "  	   << names_size
@@ -465,8 +465,6 @@ class FilterContext {
 			 << endl;
 
 		clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
-		clog << "rusage so far: ";
-		logrusage(clog, post_names_rusage);
 	}
 
 	int get_best_content(const sc::StreamItem& stream_item, string* content) const {
@@ -711,7 +709,6 @@ void run_threads(int nthreads, atp::TBinaryProtocol* input, atp::TBinaryProtocol
 	pthread_t* fthreads = new pthread_t[nthreads];
 	pthread_t othread;
 
-	// TODO: multiple filter threads
 	int err;
 	for (int i = 0; i < nthreads; i++) {
 	    err = pthread_create(&(fthreads[i]), NULL, filter_thread, &filterer);
@@ -862,6 +859,10 @@ int main(int argc, char **argv) {
 	 }
 
 	 fcontext.compile_names();
+	 struct rusage post_names_rusage;
+	 getrusage(RUSAGE_SELF, &post_names_rusage);
+	 clog << "rusage so far: ";
+	 logrusage(clog, post_names_rusage);
 
 	 // Time this annotator was started
 	 sc::StreamTime streamtime;
@@ -969,8 +970,6 @@ int main(int argc, char **argv) {
 
 	/////////////////////////////////////////////////////////////////////////// TIMING RESULTS
 	
-#if 0
-	 // TODO: resurrect rusage
 	struct rusage end_rusage;
 	getrusage(RUSAGE_SELF, &end_rusage);
 	struct rusage match_rusage = end_rusage - post_names_rusage;
@@ -978,7 +977,7 @@ int main(int argc, char **argv) {
 	logrusage(clog, match_rusage);
 	clog << "total usage: ";
 	logrusage(clog, end_rusage);
-#endif
+
 	{
 	auto diff = chrono::high_resolution_clock ::now() - start;
 	double nsec                 = chrono::duration_cast<chrono::nanoseconds>(diff).count();
