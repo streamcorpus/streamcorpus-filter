@@ -1,5 +1,4 @@
 #include "ahocorasick.h"
-#include "search.h"
 
 #include <pthread.h>
 
@@ -238,13 +237,7 @@ class FilterContext {
 	bool verbose;
 	size_t max_names;
 
-#if 1
-#define DIRECT_AC 1
-
 	AC_AUTOMATA_t *atm;
-#else
-	names_t names;
-#endif
 
 	size_t name_min;
 	size_t name_max;
@@ -258,12 +251,9 @@ class FilterContext {
 		: matches(0), written(0), do_normalize(false), verbose(false), max_names(numeric_limits<size_t>::max()), name_min(numeric_limits<size_t>::max()), name_max(0), total_name_length(0), names_size(0), total_content_size(0)
 	{
 		start = chrono::high_resolution_clock ::now();
-#if DIRECT_AC
 		 atm = ac_automata_init ();
-#endif
 	};
 
-#if DIRECT_AC
     bool _sizeok(size_t size) {
 	if (size > AC_PATTRN_MAX_LENGTH) {
 #ifdef DEBUG 
@@ -330,11 +320,6 @@ class FilterContext {
 		};
 		_add_stats(size);
 	}
-#else
-	void add_name(const string& name) {
-		names.insert(name.data(), name.data() + nameormed.size());
-	}
-#endif
 
 	int read_simple_names(const string& names_simple_path) {
 		// read a file of one name per line
@@ -465,11 +450,7 @@ class FilterContext {
 	}
 
 	void compile_names() {
-#if DIRECT_AC
 		ac_automata_finalize(atm);
-#else
-		names.post_ctor();
-#endif
 
 		// and log stuff about it
 		struct rusage post_names_rusage;
@@ -477,10 +458,6 @@ class FilterContext {
 		auto diff = chrono::high_resolution_clock ::now() - start;
 		double sec = chrono::duration_cast<chrono::nanoseconds>(diff).count();
 		clog << "Names: "  	   << names_size
-#if DIRECT_AC
-#else
-			 << ";  used: "        << names.size()
-#endif
 			 << ";  min: "         << name_min
 			 << ";  max: "         << name_max
 			//			 << ";  avg: "         << double(total_name_length)/names.size()
@@ -546,7 +523,6 @@ class FilterContext {
 		}
 
 		bool any_match = false;
-#if DIRECT_AC
 		AC_TEXT_t tmp_text;
 		tmp_text.astring = normtext;
 		tmp_text.length = textlen;
@@ -555,11 +531,6 @@ class FilterContext {
 
 		AC_MATCH_t match;
 		int did_match = ac_automata_findnext_r(atm, &findcontext, &match);
-#else
-		names.set_content(normtext, normtext + textlen);
-		pos_t match_b, match_e;
-		int did_match = names.find_next(&match_b, &match_e);
-#endif
 
 		set<string> target_ids;
 
@@ -569,7 +540,6 @@ class FilterContext {
 			clog << stream_item->doc_id << endl;
 		    }
 			any_match = true;
-#if DIRECT_AC
 			matches += match.match_num;
 
 			for (unsigned int i = 0; i < match.match_num; ++i) {
@@ -593,9 +563,6 @@ class FilterContext {
 				}
 			    }
 			}
-#else
-			matches++;
-#endif
 
 #if 0
 			// We don't (currently) record the per mention
@@ -616,7 +583,6 @@ class FilterContext {
 				
 			// Add the actual offsets 
 			sc::Offset offset;
-#if DIRECT_AC
 			offset.type = sc::OffsetType::BYTES;
 
 			size_t startpos, endpos;
@@ -633,16 +599,6 @@ class FilterContext {
 				
 			label.offsets[sc::OffsetType::BYTES] = offset;
 			label.__isset.offsets = true;
-#else
-			offset.type = sc::OffsetType::CHARS;
-					
-			offset.first = match_b - b;
-			offset.length = match_e - match_b;
-			//offset.content_form = std::string(match_b, match_e);
-				
-			label.offsets[sc::OffsetType::CHARS] = offset;
-			label.__isset.offsets = true;
-#endif
 				
 			// Add new label to the list of labels.
 			stream_item->body.labels[ANNOTATOR_ID].push_back(label);
@@ -651,11 +607,7 @@ class FilterContext {
 			//target_text_map[target.target_id].insert(std::string(match_b, match_e));
 #endif /* No per-mention labels */
 
-#if DIRECT_AC
 			did_match = ac_automata_findnext_r(atm, &findcontext, &match);
-#else
-			did_match = names.find_next(&match_b, &match_e);
-#endif
 		}
 
 		// Set document "Rating" objects to note that a
@@ -756,14 +708,17 @@ void run_threads(int nthreads, atp::TBinaryProtocol* input, atp::TBinaryProtocol
 	// start theads
 	auto filterer = FilterThread(fc, &in_queue, &out_queue);
 	auto writer = StreamItemWriter(&out_queue, output);
-	pthread_t fthread;
+	pthread_t* fthreads = new pthread_t[nthreads];
 	pthread_t othread;
 
 	// TODO: multiple filter threads
-	int err = pthread_create(&fthread, NULL, filter_thread, &filterer);
-	if (err != 0) {
+	int err;
+	for (int i = 0; i < nthreads; i++) {
+	    err = pthread_create(&(fthreads[i]), NULL, filter_thread, &filterer);
+	    if (err != 0) {
 		perror("opening filter thread");
 		exit(1);
+	    }
 	}
 	err = pthread_create(&othread, NULL, pthread_writer, &writer);
 	if (err != 0) {
@@ -793,7 +748,9 @@ void run_threads(int nthreads, atp::TBinaryProtocol* input, atp::TBinaryProtocol
 	clog << "Total stream items processed: " << stream_items_count << endl;
 
 	// join threads
-	pthread_join(fthread, NULL);
+	for (int i = 0; i < nthreads; i++) {
+	    pthread_join(fthreads[i], NULL);
+	}
 
 	out_queue.close();
 	pthread_join(othread, NULL);
