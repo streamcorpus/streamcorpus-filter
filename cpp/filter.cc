@@ -228,6 +228,9 @@ static void logrusage(std::ostream& out, const struct rusage& ru) {
 typedef std::vector<string> TargetIdList;
 
 
+static const bool debug_matches = false;
+
+
 class FilterContext {
 	public:
 	string text_source;
@@ -245,23 +248,32 @@ class FilterContext {
 	size_t 	names_size;	// number of names (size of names_begin-1)
 	long total_content_size;
 
+	size_t min_name_length;
+	size_t max_name_length;
+
 	chrono::high_resolution_clock::time_point start;
 	
 	FilterContext()
-		: matches(0), written(0), do_normalize(false), verbose(false), max_names(numeric_limits<size_t>::max()), name_min(numeric_limits<size_t>::max()), name_max(0), total_name_length(0), names_size(0), total_content_size(0)
+		: matches(0), written(0), do_normalize(false), verbose(false),
+		  max_names(numeric_limits<size_t>::max()),
+		  name_min(numeric_limits<size_t>::max()), name_max(0),
+		  total_name_length(0), names_size(0), total_content_size(0),
+		  min_name_length(3), max_name_length(1000)
 	{
 		start = chrono::high_resolution_clock ::now();
 		 atm = ac_automata_init ();
 	};
 
     bool _sizeok(size_t size) {
-	if (size > AC_PATTRN_MAX_LENGTH) {
+		if ((size > AC_PATTRN_MAX_LENGTH) ||
+			(size > max_name_length) ||
+			(size < min_name_length)) {
 #ifdef DEBUG 
-	    cerr << "\twarning: name of length " << size << " skipped\n";
+			cerr << "\twarning: name of length " << size << " skipped\n";
 #endif
-	    return false;
-	}
-	return true;
+			return false;
+		}
+		return true;
     }
 
     void _add_stats(size_t size) {
@@ -383,9 +395,11 @@ class FilterContext {
 	    for(auto& pr : filter_names.name_to_target_ids) {
 		const string& name = pr.first;
 		TargetIdList* matchtargets = new TargetIdList(pr.second);
+#if 0  /* almost always too verbose to dump all the names */
 		if (verbose) {
 		    clog << name << "\t" << matchtargets->size() << endl;
 		}
+#endif
 
 		count++;
 		if (do_normalize) {
@@ -533,9 +547,9 @@ class FilterContext {
 		set<string> target_ids;
 
 		while (did_match) {
-		    if (verbose && !any_match) {
-			// first match for stream_item
-			clog << stream_item->doc_id << endl;
+		    if (debug_matches && verbose && !any_match) {
+				// first match for stream_item
+				clog << stream_item->doc_id << endl;
 		    }
 			any_match = true;
 			matches += match.match_num;
@@ -543,22 +557,22 @@ class FilterContext {
 			for (unsigned int i = 0; i < match.match_num; ++i) {
 			    TargetIdList* tids = (TargetIdList*)(match.patterns[i].rep.stringy);
 			    if (tids != NULL) {
-				if (verbose) {
-				    clog << "[" << (match.position - match.patterns[i].length) << "] " << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << "\t";
-				}
-				for (string& targetid : *tids) {
-				    target_ids.insert(targetid);
-				    if (verbose) {
-					clog << targetid << " ";
-				    }
-				}
-				if (verbose) {
-				    clog << endl;
-				}
+					if (debug_matches && verbose) {
+						clog << "[" << (match.position - match.patterns[i].length) << "] " << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << "\t";
+					}
+					for (string& targetid : *tids) {
+						target_ids.insert(targetid);
+						if (debug_matches && verbose) {
+							clog << targetid << " ";
+						}
+					}
+					if (debug_matches && verbose) {
+						clog << endl;
+					}
 			    } else {
-				if (verbose) {
-				    clog << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << " no targets\n";
-				}
+					if (debug_matches && verbose) {
+						clog << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << " no targets\n";
+					}
 			    }
 			}
 
@@ -606,6 +620,10 @@ class FilterContext {
 #endif /* No per-mention labels */
 
 			did_match = ac_automata_findnext_r(atm, &findcontext, &match);
+		}
+
+		if (verbose) {
+			clog << stream_item->doc_id << " len(target_ids)=" << target_ids.size() << endl;
 		}
 
 		// Set document "Rating" objects to note that a
