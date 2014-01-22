@@ -283,7 +283,8 @@ class FilterContext {
 	total_name_length += size;
     }
 
-    void add_name(const string& name, void* targets=NULL) {
+    // does not normalize(), do externally if do_normalize
+    void add_name(const string& name, TargetIdList* targets=NULL) {
 		if (name.empty()) {
 			return;
 		}
@@ -309,7 +310,15 @@ class FilterContext {
 		_add_stats(name.size());
 	}
 
-	void add_name(const char* data, size_t size) {
+    // Also contains normalization step if do_normalize
+	void add_name(const char* data, size_t size, TargetIdList* targets=NULL) {
+	    if (do_normalize) {
+		string raw(data, size);
+		string normed;
+		normalize(raw, &normed, NULL);
+		add_name(normed, targets);
+		return;
+	    }
 		if (data == NULL) { return; }
 		if (!_sizeok(size)) { return; }
 
@@ -317,7 +326,7 @@ class FilterContext {
 		tmp_pattern.astring = data;
 		tmp_pattern.length = size;
 		// rep.{stringy,number} are our data returned to us in match
-		tmp_pattern.rep.stringy = NULL; // const char*
+		tmp_pattern.rep.stringy = (const char*)targets;
 		
 		AC_STATUS_t rc = ac_automata_add (atm, &tmp_pattern);
 		if (rc == ACERR_DUPLICATE_PATTERN) {
@@ -335,6 +344,7 @@ class FilterContext {
 
 	int read_simple_names(const string& names_simple_path) {
 		// read a file of one name per line
+		// OR name [\t target_id]+ \n
 		size_t names_mem;      // size of names_data;
 		names_size = 0;
 		char* names_data  = mmap_read<char>(names_simple_path.c_str(), names_mem);
@@ -343,18 +353,10 @@ class FilterContext {
 		size_t startpos = 0;
 		size_t pos = 0;
 		while (pos < names_mem) {
+		    // TODO: probably not UTF-8 Safe
 			if (names_data[pos] == '\n') {
 			    count++;
-				if (do_normalize) {
-					string raw(names_data + startpos, pos - startpos);
-					string normed;
-					normalize(raw, &normed, NULL);
-					add_name(normed);
-					//names.insert(normed.data(), normed.data() + normed.size());
-				} else {
-					add_name(names_data + startpos, pos - startpos);
-					//names.insert(names_data + startpos, names_data + pos);
-				}
+			    add_name(names_data + startpos, pos - startpos);
 				startpos = pos + 1;
 
 				if (count >= max_names) {
@@ -447,18 +449,7 @@ class FilterContext {
 
 
 		for (size_t i=0;  i< std::min(max_names,names_size);  ++i) {
-			//cerr << "addeing name: " <<  i << " " <<  names_begin[i] <<   names_begin[i+1] 
-			//<< " (" << string(names_data+names_begin[i], names_data+names_begin[i+1]) << endl;
-			if (do_normalize) {
-				string raw(names_data+names_begin[i], names_begin[i+1]-names_begin[i]);
-				string normed;
-				normalize(raw, &normed, NULL);
-				add_name(normed);
-				//names.insert(normed.data(), normed.data() + normed.size());
-			} else {
-				add_name(names_data+names_begin[i], names_begin[i+1]-names_begin[i]);
-				//names.insert(names_data+names_begin[i], names_data+names_begin[i+1]);
-			}
+		    add_name(names_data+names_begin[i], names_begin[i+1]-names_begin[i]);
 		}
 		// TODO: munmap() and close!
 
