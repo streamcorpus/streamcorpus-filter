@@ -45,7 +45,7 @@ class Filter(object):
         '''reads a FilterNames message from a flat file
         '''
         if not os.path.exists(path_to_thrift_message):
-            sys.exit('path does not exist: %r' % path_to_thrift_message)
+            raise Exception('path does not exist: %r' % path_to_thrift_message)
         fh = open(path_to_thrift_message)
         fh = StringIO(fh.read())
         i_transport = TBufferedTransport(fh)
