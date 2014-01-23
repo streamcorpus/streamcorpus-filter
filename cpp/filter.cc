@@ -258,7 +258,7 @@ class FilterContext {
 		  max_names(numeric_limits<size_t>::max()),
 		  name_min(numeric_limits<size_t>::max()), name_max(0),
 		  total_name_length(0), names_size(0), total_content_size(0),
-		  min_name_length(3), max_name_length(1000)
+		  min_name_length(5), max_name_length(1000)
 	{
 		start = chrono::high_resolution_clock ::now();
 		 atm = ac_automata_init ();
@@ -646,9 +646,11 @@ class FilterThread {
 	FilterContext* fcontext;
 	TQueue<sc::StreamItem*>* items_in;
 	TQueue<sc::StreamItem*>* items_out;
+	bool empty_stream_item_instead_of_drop;
 
 	FilterThread(FilterContext* fc, TQueue<sc::StreamItem*>* in, TQueue<sc::StreamItem*>* out)
-		: fcontext(fc), items_in(in), items_out(out)
+	    : fcontext(fc), items_in(in), items_out(out),
+	      empty_stream_item_instead_of_drop(false)
 	{}
 
 	void* run() {
@@ -661,6 +663,12 @@ class FilterThread {
 			if (matched) {
 				mcount++;
 				items_out->push(item);
+			} else if (empty_stream_item_instead_of_drop) {
+			    delete item;
+			    item = new sc::StreamItem();
+			    items_out->push(item);
+			} else {
+			    delete item;
 			}
 		}
 		//clog << "f thread ending. items=" << count << " matches=" << mcount << endl;
@@ -689,6 +697,7 @@ class StreamItemWriter {
 		while (_input->pop(&item)) {
 			count++;
 			item->write(_output);
+			delete item;
 		}
 		//clog << "writer thread ending, count=" << count << endl;
 		clog << "Total stream items written: " << count << endl;
@@ -779,11 +788,16 @@ int main(int argc, char **argv) {
 	 bool		verbose		= false;
 	 bool		do_normalize	= false;
 	 int        threads = 1;
-	 //bool		no_search	= false;
+	 int min_name_length = 5;
+	 int max_name_length = 1000;
+	 string in_path;
+	 string out_path;
 
 	 po::options_description desc("Allowed options");
 
 	 desc.add_options()
+		 ("input", po::value<string>(&in_path), "path to input streamcorpus file (default stdin)")
+		 ("output", po::value<string>(&out_path), "path to ouput streamcorpus file (default stdout)")
 		 ("help,h",                                          "help message")
 		 ("text_source,t", po::value<string>(&text_source),  "text source in stream item")
 		 ("negate,n",	po::value<bool>(&negate)->implicit_value(true), "negate sense of match")
@@ -793,6 +807,8 @@ int main(int argc, char **argv) {
 		 ("max-names,N", po::value<size_t>(&max_names), "maximum number of names to use")
 		 ("max-items,I", po::value<size_t>(&max_items), "maximum number of items to process")
 		 ("threads,j", po::value<int>(&threads), "number of threads to run (default 1)")
+		 ("min-name-length", po::value<int>(&min_name_length), "discard names shorter than this (default 5)")
+		 ("max-name-length", po::value<int>(&max_name_length), "discard names longer than this (default 1000)")
 		 ("verbose",	"performance metrics every 100 items")
 		 ("normalize",	"collapse spaces of input")
 		 ("no-search",	"do not search - pass through every item")
@@ -808,7 +824,6 @@ int main(int argc, char **argv) {
 		 return 1;
 	 }
 	 if (vm.count("verbose"))	verbose=true;
-	 //if (vm.count("no-search"))	no_search=true;
 	 if (vm.count("normalize"))	do_normalize=true;
 
 	 FilterContext fcontext;
@@ -816,6 +831,8 @@ int main(int argc, char **argv) {
 	 fcontext.verbose = verbose;
 	 fcontext.do_normalize = do_normalize;
 	 fcontext.max_names = max_names;
+	 fcontext.min_name_length = min_name_length;
+	 fcontext.max_name_length = max_name_length;
 
 	 if (!names_path.empty()) {
 	     // construct names_begin_path
@@ -886,6 +903,13 @@ int main(int argc, char **argv) {
 	 // Setup thrift reading and writing from stdin and stdout
 	 int input_fd = 0;
 	 int output_fd = 1;
+
+	 if (!in_path.empty()) {
+	     input_fd = open(in_path.c_str(), O_RDONLY);
+	 }
+	 if (!out_path.empty()) {
+	     output_fd = open(out_path.c_str(), O_WRONLY|O_CREAT, 0666);
+	 }
 
 	 // input
 	 boost::shared_ptr<att::TFDTransport>	        innerTransportInput(new att::TFDTransport(input_fd));

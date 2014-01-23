@@ -121,6 +121,7 @@ setup(
     url=URL,
     packages=find_packages('src', exclude=('tests', 'tests.*')),
     package_dir={'': 'src'},
+    entry_points={'streamcorpus.pipeline.stages': 'textfilter_batch = streamcorpus_filter.pipeline_stage:FastFilterBatch'},
     cmdclass={'test': PyTest,
               'install_test': InstallTestDependencies},
     # We can select proper classifiers later

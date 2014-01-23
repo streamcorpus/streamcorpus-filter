@@ -142,9 +142,9 @@ grep 'Total stream items written: 664' /tmp/${USER}_filterlog.txt
     namesscfpath = os.path.abspath(os.path.join(os.path.dirname(__file__), '../data/test-name-strings.scf'))
     binpath = os.path.abspath(os.path.join(os.path.dirname(__file__), 'filter-multifast'))
 
-    err1 = test_cmd([binpath, '--normalize', '--names=' + namespath, '--verbose'], rawin)
-    err2 = test_cmd([binpath, '--normalize', '--names=' + namespath, '--verbose', "--threads=2"], rawin)
-    err1 = test_cmd([binpath, '--normalize', '--names-scf=' + namesscfpath, '--verbose'], rawin, check_output_for_ratings)
+    err1 = test_cmd([binpath, '--normalize', '--names=' + namespath, '--verbose', '--min-name-length', '3'], rawin)
+    err2 = test_cmd([binpath, '--normalize', '--names=' + namespath, '--verbose', '--min-name-length', '3', "--threads=2"], rawin)
+    err1 = test_cmd([binpath, '--normalize', '--names-scf=' + namesscfpath, '--verbose', '--min-name-length', '3'], rawin, check_output_for_ratings)
 
     err = err1 or err2
 
