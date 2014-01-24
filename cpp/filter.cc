@@ -239,6 +239,7 @@ class FilterContext {
 	bool do_normalize;
 	bool verbose;
 	size_t max_names;
+	size_t max_items;
 
 	AC_AUTOMATA_t *atm;
 
@@ -251,6 +252,9 @@ class FilterContext {
 	size_t min_name_length;
 	size_t max_name_length;
 
+	int rating_target_count;
+	bool empty_stream_item_instead_of_drop;
+
 	chrono::high_resolution_clock::time_point start;
 	
 	FilterContext()
@@ -258,7 +262,8 @@ class FilterContext {
 		  max_names(numeric_limits<size_t>::max()),
 		  name_min(numeric_limits<size_t>::max()), name_max(0),
 		  total_name_length(0), names_size(0), total_content_size(0),
-		  min_name_length(5), max_name_length(1000)
+		  min_name_length(5), max_name_length(1000),
+		  rating_target_count(0)
 	{
 		start = chrono::high_resolution_clock ::now();
 		 atm = ac_automata_init ();
@@ -623,6 +628,7 @@ class FilterContext {
 		    vector<sc::Rating> ratings;
 		    sc::Annotator annotator;
 		    annotator.annotator_id = ANNOTATOR_ID;
+		    rating_target_count += target_ids.size();
 		    for (const string& target_id : target_ids) {
 			sc::Target targ;
 			targ.target_id = target_id;
@@ -638,7 +644,22 @@ class FilterContext {
 		return any_match;
 	}
 
+    size_t run_threads(int nthreads, atp::TBinaryProtocol* input, atp::TBinaryProtocol* output);
+
 }; // FilterContext
+
+
+// Return a new empty item that has empty values for all the thrift-required fields.
+sc::StreamItem* newEmptyItem() {
+    sc::StreamItem* item;
+    item = new sc::StreamItem();
+    item->doc_id = "";
+    item->stream_id = "";
+    item->stream_time = sc::StreamTime();
+    item->stream_time.epoch_ticks = 0;
+    item->stream_time.zulu_timestamp = "";
+    return item;
+}
 
 
 class FilterThread {
@@ -665,7 +686,7 @@ class FilterThread {
 				items_out->push(item);
 			} else if (empty_stream_item_instead_of_drop) {
 			    delete item;
-			    item = new sc::StreamItem();
+			    item = newEmptyItem();
 			    items_out->push(item);
 			} else {
 			    delete item;
@@ -691,7 +712,7 @@ class StreamItemWriter {
 		: _input(input), _output(output)
 	{}
 
-    void run() {
+    int run() {
 		sc::StreamItem* item;
 		int count = 0;
 		while (_input->pop(&item)) {
@@ -701,6 +722,7 @@ class StreamItemWriter {
 		}
 		//clog << "writer thread ending, count=" << count << endl;
 		clog << "Total stream items written: " << count << endl;
+		return count;
 	}
 
 	private:
@@ -711,18 +733,19 @@ class StreamItemWriter {
 // target for pthread_create
 void* pthread_writer(void* arg) {
 	StreamItemWriter* it = (StreamItemWriter*)arg;
-	it->run();
-	return NULL;
+	uintptr_t written = it->run();
+	return (void*)written;
 }
 
 
-void run_threads(int nthreads, atp::TBinaryProtocol* input, atp::TBinaryProtocol* output, FilterContext* fc, size_t max_items) {
+size_t FilterContext::run_threads(int nthreads, atp::TBinaryProtocol* input, atp::TBinaryProtocol* output) {
 	// make queues
 	TQueue<sc::StreamItem*> in_queue(10);
 	TQueue<sc::StreamItem*> out_queue(10);
 
 	// start theads
-	auto filterer = FilterThread(fc, &in_queue, &out_queue);
+	auto filterer = FilterThread(this, &in_queue, &out_queue);
+	filterer.empty_stream_item_instead_of_drop = empty_stream_item_instead_of_drop;
 	auto writer = StreamItemWriter(&out_queue, output);
 	pthread_t* fthreads = new pthread_t[nthreads];
 	pthread_t othread;
@@ -768,7 +791,14 @@ void run_threads(int nthreads, atp::TBinaryProtocol* input, atp::TBinaryProtocol
 	}
 
 	out_queue.close();
-	pthread_join(othread, NULL);
+	void* writecount;
+	pthread_join(othread, &writecount);
+	int written = (uintptr_t)writecount;
+	clog << "Added " << rating_target_count << " ratings, "
+	     << ((1.0 * rating_target_count) / written)
+	     << " ratings-per-written-item\n";
+
+	return stream_items_count;
 }
 
 
@@ -792,6 +822,7 @@ int main(int argc, char **argv) {
 	 int max_name_length = 1000;
 	 string in_path;
 	 string out_path;
+	 bool empty_stream_item_instead_of_drop = false;
 
 	 po::options_description desc("Allowed options");
 
@@ -812,6 +843,7 @@ int main(int argc, char **argv) {
 		 ("verbose",	"performance metrics every 100 items")
 		 ("normalize",	"collapse spaces of input")
 		 ("no-search",	"do not search - pass through every item")
+		 ("emit-empties", "instead of just dropping non-matches, emit an empty item in its place")
 	 ;
 
 	 // Parse command line options
@@ -825,6 +857,7 @@ int main(int argc, char **argv) {
 	 }
 	 if (vm.count("verbose"))	verbose=true;
 	 if (vm.count("normalize"))	do_normalize=true;
+	 if (vm.count("emit-empties"))	empty_stream_item_instead_of_drop=true;
 
 	 FilterContext fcontext;
 	 fcontext.text_source = text_source;
@@ -833,6 +866,8 @@ int main(int argc, char **argv) {
 	 fcontext.max_names = max_names;
 	 fcontext.min_name_length = min_name_length;
 	 fcontext.max_name_length = max_name_length;
+	 fcontext.max_items = max_items;
+	 fcontext.empty_stream_item_instead_of_drop = empty_stream_item_instead_of_drop;
 
 	 if (!names_path.empty()) {
 	     // construct names_begin_path
@@ -937,7 +972,8 @@ int main(int argc, char **argv) {
 	 auto start100 = chrono::high_resolution_clock ::now();
 
 	 if (threads > 1) {
-		 run_threads(threads, protocolInput.get(), protocolOutput.get(), &fcontext, max_items);
+		 stream_items_count = fcontext.run_threads(
+		     threads, protocolInput.get(), protocolOutput.get());
 	 } else {
 
 	 while (true) {
@@ -965,11 +1001,18 @@ int main(int argc, char **argv) {
 
 			any_match = fcontext.check_streamitem(&stream_item);
 	    		
+			if (any_match) { matches++; }
 
 				if ((any_match && (! negate)) ||
 					((! any_match) && negate)) {
 					stream_item.write(protocolOutput.get());
 					written++;
+				} else if (empty_stream_item_instead_of_drop) {
+				    static sc::StreamItem* empty_item;
+				    if (empty_item == NULL) {
+					empty_item = newEmptyItem();
+				    }
+				    empty_item->write(protocolOutput.get());
 				}
 	    		
 	    		stream_items_count++;
@@ -992,6 +1035,9 @@ int main(int argc, char **argv) {
 	 clog << "Total stream items processed: " << stream_items_count << endl;
 	 clog << "Total matches: "                << matches << endl;
 	 clog << "Total stream items written: "   << written << endl;
+	 clog << "Added " << fcontext.rating_target_count << " ratings, "
+	      << ((1.0 * fcontext.rating_target_count) / written)
+	      << " ratings-per-written-item\n";
 
 	 } // single thread inline execution
 
