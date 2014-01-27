@@ -23,9 +23,17 @@
 	namespace att = apache::thrift::transport;
 
 // THRIFT -- STREAMCORUPS
-#include "streamcorpus_types.h"
-#include "streamcorpus_constants.h"
-	namespace sc = streamcorpus;
+
+#ifdef USE_STREAMCORPUS_2
+#include "sc2/sc2_types.h"
+#include "sc2/sc2_constants.h"
+	namespace sc = streamcorpus2;
+#else
+// version 3
+#include "sc3/sc3_types.h"
+#include "sc3/sc3_constants.h"
+	namespace sc = streamcorpus3;
+#endif
 
 // THRIFT -- FILTERNAMES
 #include "filternames_types.h"

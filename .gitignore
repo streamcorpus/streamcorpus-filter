@@ -43,5 +43,7 @@ cpp/*.mmap
 cpp/note
 cpp/test_throughput_speed
 cpp/scf2mmap
-
+cpp/sc2
+cpp/sc3
+cpp/filter-multifast-sc2
 

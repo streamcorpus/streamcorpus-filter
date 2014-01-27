@@ -1,0 +1,11 @@
+--- streamcorpus/if/streamcorpus-v0_2_0.thrift	2013-12-10 16:46:19.000000000 +0000
++++ sc2/sc2.thrift	2014-01-27 19:43:36.361636004 +0000
+@@ -36,7 +36,7 @@
+  */
+ namespace java streamcorpus
+ namespace py streamcorpus
+-namespace cpp streamcorpus
++namespace cpp streamcorpus2
+ 
+ /**
+  * StreamTime is a timestamp measured in seconds since the 1970 epoch.
