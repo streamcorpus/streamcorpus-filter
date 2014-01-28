@@ -34,7 +34,7 @@ sc3/sc3.thrift:	streamcorpus/if/streamcorpus-v0_3_0.thrift
 	mkdir -p sc3
 	patch -p0 -o $@ $^ sc3.diff
 
-sc3/sc3_constants.cpp sc3/sc3_constants.h c3/sc3_types.cpp sc3/sc3_types.h:	sc3/sc3.thrift
+sc3/sc3_constants.cpp sc3/sc3_constants.h sc3/sc3_types.cpp sc3/sc3_types.h:	sc3/sc3.thrift
 	$(THRIFT)  --out sc3 --gen cpp $^
 
 # regenerated diff
@@ -42,6 +42,7 @@ sc3.diff:	streamcorpus/if/streamcorpus-v0_3_0.thrift sc3/sc3.thrift
 	diff -u streamcorpus/if/streamcorpus-v0_3_0.thrift sc3/sc3.thrift > sc3.diff
 
 sc2/sc2.thrift:	streamcorpus/if/streamcorpus-v0_2_0.thrift
+	mkdir -p sc2
 	patch -p0 -o $@ $^ sc2.diff
 
 # regenerated diff
