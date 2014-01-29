@@ -38,7 +38,7 @@
 // THRIFT -- FILTERNAMES
 #include "filternames_types.h"
 #include "filternames_constants.h"
-	namespace fn = filternames;
+	namespace fn = streamcorpus_filter;
 
 
 // STD
