@@ -54,7 +54,8 @@ sc2/sc2_types.cpp sc2/sc2_constants.cpp sc2/sc2_types.h sc2/sc2_constants.h:	sc2
 	$(THRIFT)  --out sc2 --gen cpp $^
 
 multifast multifast/ahocorasick/node.c multifast/ahocorasick/ahocorasick.c multifast/ahocorasick/ahocorasick.h:
-	svn co svn://svn.code.sf.net/p/multifast/code/trunk multifast
+	svn co svn://svn.code.sf.net/p/multifast/code/trunk@31 multifast
+	cat multifast.patch | (cd multifast && patch -p0)
 
 filternames.thrift:	../if/streamcorpus-filter-v0_1_0.thrift
 	cp $^ $@
