@@ -5,6 +5,7 @@ streamcorpus.StreamItem to find names from a FilterName
 
 from __future__ import absolute_import
 
+import logging
 import os
 import sys
 from cStringIO import StringIO
@@ -34,6 +35,8 @@ from streamcorpus import StreamItem, Rating, Label, Annotator, Offset, OffsetTyp
 ## thrift message class from this package
 from streamcorpus_filter.ttypes import FilterNames
 
+logger = logging.getLogger(__name__)
+
 class Filter(object):
 
     def __init__(self):
@@ -46,8 +49,18 @@ class Filter(object):
         '''
         if not os.path.exists(path_to_thrift_message):
             raise Exception('path does not exist: %r' % path_to_thrift_message)
-        fh = open(path_to_thrift_message)
-        fh = StringIO(fh.read())
+        fh = open(path_to_thrift_message, 'rb')
+
+        # This is a lame workaround to a bug in Thrift experienced
+        # during unit tests. Thrift cannot handle files in
+        # non-blocking mode that could return from .read() with less
+        # than the asked for data. read(-1) seems to force reading all
+        # the data, and once we have it all in memory it is safe for
+        # Thrift to read it.
+        raw = fh.read(-1)
+        logger.debug('read %s bytes of %r', len(raw), path_to_thrift_message)
+        fh = StringIO(raw)
+
         i_transport = TBufferedTransport(fh)
         i_protocol = TBinaryProtocol(i_transport)
         self.filter_names = FilterNames()
