@@ -8,7 +8,7 @@ build:	src/streamcorpus_filter/constants.py src/streamcorpus_filter/ttypes.py
 
 
 install: build
-	python setup.py install
+	pip install .
 	python setup.py install_test
 
 test: install

@@ -93,17 +93,9 @@ class PyTest(Command):
         pass
 
     def run(self):
-        if self.distribution.install_requires:
-            for ir in self.distribution.install_requires:
-                _myinstall(ir)
-        if self.distribution.tests_require:
-            for ir in self.distribution.tests_require:
-                _myinstall(ir)
-
         # reload sys.path for any new libraries installed
         import site
         site.main()
-        print sys.path
         # use pytest to run tests
         pytest = __import__('pytest')
         if pytest.main(['-n', '3', '-vvs', 'src/tests']):
