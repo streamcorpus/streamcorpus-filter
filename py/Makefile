@@ -3,7 +3,8 @@ clean:
 	rm -rf build dist src/streamcorpus_filter.egg-info
 
 .PHONY: build
-build:	src/streamcorpus_filter/constants.py src/streamcorpus_filter/ttypes.py
+# build:	src/streamcorpus_filter/constants.py src/streamcorpus_filter/ttypes.py
+# build:	
 	python setup.py build
 
 
