@@ -93,20 +93,12 @@ class PyTest(Command):
         pass
 
     def run(self):
-        if self.distribution.install_requires:
-            for ir in self.distribution.install_requires:
-                _myinstall(ir)
-        if self.distribution.tests_require:
-            for ir in self.distribution.tests_require:
-                _myinstall(ir)
-
         # reload sys.path for any new libraries installed
         import site
         site.main()
-        print sys.path
         # use pytest to run tests
         pytest = __import__('pytest')
-        if pytest.main(['-n', '8', '-s', 'src']):
+        if pytest.main(['-n', '3', '-vvs', 'src/tests']):
             sys.exit(1)
 
 setup(
@@ -121,6 +113,7 @@ setup(
     url=URL,
     packages=find_packages('src', exclude=('tests', 'tests.*')),
     package_dir={'': 'src'},
+    entry_points={'streamcorpus.pipeline.stages': 'textfilter_batch = streamcorpus_filter.pipeline_stage:FastFilterBatch'},
     cmdclass={'test': PyTest,
               'install_test': InstallTestDependencies},
     # We can select proper classifiers later
@@ -141,6 +134,6 @@ setup(
     ],
     install_requires=[
         'thrift',
-        'streamcorpus-dev >= 0.3.0',
+        'streamcorpus >= 0.3.0',
     ],
 )

@@ -3,14 +3,17 @@ clean:
 	rm -rf build dist src/streamcorpus_filter.egg-info
 
 .PHONY: build
-build: clean
-	thrift --gen py ../if/streamcorpus-filter-v0_1_0.thrift
-	mv gen-py/streamcorpus_filter/ttypes.py src/streamcorpus_filter/
-	mv gen-py/streamcorpus_filter/constants.py src/streamcorpus_filter/
-	rm -rf gen-py
+# build:	src/streamcorpus_filter/constants.py src/streamcorpus_filter/ttypes.py
+# build:	
+	python setup.py build
+
 
 install: build
-	python setup.py install
+	pip install .
+	python setup.py install_test
 
 test: install
-	pytest setup.py test
+	python setup.py test
+
+src/streamcorpus_filter/constants.py src/streamcorpus_filter/ttypes.py:	../if/streamcorpus-filter-v0_1_0.thrift
+	thrift --gen py -out src ../if/streamcorpus-filter-v0_1_0.thrift
