@@ -79,6 +79,7 @@
 
 
 static const string ANNOTATOR_ID = "streamcorpus-filter-faststrstr";
+static const string TAGGER_ID = "streamcorpus-filter-faststrstr";
 
 
 #ifdef GPERF
@@ -485,39 +486,52 @@ class FilterContext {
 		clog << "Names construction time: "      << sec/1e9 << " sec" << endl;
 	}
 
-	int get_best_content(const sc::StreamItem& stream_item, string* content) const {
-		if (text_source == "clean_visible") {
-			*content = stream_item.body.clean_visible;
-		} else if (text_source == "clean_html") {
-			*content = stream_item.body.clean_html;
-		} else if (text_source == "raw") {
-			*content = stream_item.body.raw;
-		} else {
-			cerr << "Bad text_source :" << text_source <<endl;
-			exit(-1);
-		}
+    int get_best_content(const sc::StreamItem& stream_item, string* content, string* source_name) const {
+        // Are we configured to explicitly grab a certain content?
+        if (text_source == "clean_visible") {
+            *content = stream_item.body.clean_visible;
+            *source_name = text_source;
+        } else if (text_source == "clean_html") {
+            *content = stream_item.body.clean_html;
+            *source_name = text_source;
+        } else if (text_source == "raw") {
+            *content = stream_item.body.raw;
+            *source_name = text_source;
+        } else {
+            cerr << "Bad text_source :" << text_source <<endl;
+            exit(-1);
+        }
+        if (content->size() > 0) {
+            // Got something from configured source. Use it.
+            return 0;
+        }
 
-		if (content->size() <= 0) {
-			// Fall back to raw if desired text_source has no content.
-			*content = stream_item.body.raw;
-			//actual_text_source = "raw";
-			if (content->size() <= 0) {
-				// If all applicable text sources are empty, we have a problem and exit with an error
-				cerr/* << stream_items_count*/ << " Error, doc id:" << stream_item.doc_id << " was empty." << endl;
-				return -1;
-				//exit(-1);
-			}
-		}
-		return 0;
-	}
+        // Go through fallback order: clean_visible, clean_html, raw
+        *content = stream_item.body.clean_visible;
+        *source_name = "clean_visible";
+        if (content->size() > 0) { return 0; }
+
+        *content = stream_item.body.clean_html;
+        *source_name = "clean_html";
+        if (content->size() > 0) { return 0; }
+
+        *content = stream_item.body.raw;
+        *source_name = "raw";
+        if (content->size() > 0) { return 0; }
+
+        // If all applicable text sources are empty, we have a problem and exit with an error
+        cerr << " Error, doc id:" << stream_item.doc_id << " was empty." << endl;
+        return -1;
+    }
 
 	//void check_content(const string& content) {
 	// return true if any name matches the content
 	bool check_streamitem(sc::StreamItem* stream_item) {
 
 		string content;
+                string content_source_name;
 
-		int err = get_best_content(*stream_item, &content);
+		int err = get_best_content(*stream_item, &content, &content_source_name);
 		if (err != 0) {
 			return false;
 		}
@@ -550,6 +564,9 @@ class FilterContext {
 
 		set<string> target_ids;
 
+                vector<sc::Sentence> sentences;
+                int32_t token_num = 0;
+
 		while (did_match) {
 		    if (debug_matches && verbose && !any_match) {
 				// first match for stream_item
@@ -559,10 +576,22 @@ class FilterContext {
 			matches += match.match_num;
 
 			for (unsigned int i = 0; i < match.match_num; ++i) {
+                            size_t startpos, endpos;
+                            string matchtext;
+                            if (do_normalize) {
+				startpos = offsets[match.position - match.patterns[0].length];
+				endpos = offsets[match.position];
+                                matchtext = content.substr(startpos, endpos - startpos);
+                            } else {
+				startpos = match.position - match.patterns[0].length;
+				endpos = match.position;
+                                matchtext = string(normtext + startpos, match.patterns[0].length);
+                            }
+                            //string matchtext(normtext + (match.position - match.patterns[i].length), match.patterns[i].length);
 			    TargetIdList* tids = (TargetIdList*)(match.patterns[i].rep.stringy);
 			    if (tids != NULL) {
 					if (debug_matches && verbose) {
-						clog << "[" << (match.position - match.patterns[i].length) << "] " << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << "\t";
+						clog << "[" << (match.position - match.patterns[i].length) << "] " << matchtext << "\t";
 					}
 					for (string& targetid : *tids) {
 						target_ids.insert(targetid);
@@ -575,9 +604,34 @@ class FilterContext {
 					}
 			    } else {
 					if (debug_matches && verbose) {
-						clog << string(normtext + (match.position - match.patterns[i].length), match.patterns[i].length) << " no targets\n";
+						clog << matchtext << " no targets\n";
 					}
 			    }
+
+
+                            // Make new token
+                            {
+                                sc::Token new_token;
+                                new_token.token_num = token_num;
+                                token_num++;
+                                new_token.token = matchtext;
+
+                                sc::Offset new_token_offset;
+                                new_token_offset.type = sc::OffsetType::BYTES;
+                                new_token_offset.first = match.position - match.patterns[i].length;
+                                new_token_offset.length = match.patterns[i].length;
+                                new_token_offset.value = matchtext;
+                                new_token_offset.content_form = content_source_name;
+                                new_token.offsets[new_token_offset.type] = new_token_offset;
+
+
+                                // new_token.pos = "";  // leave Part Of Speech unset for other taggers to deal with.
+
+                                //tokens.push_back(new_token);
+                                sc::Sentence sent;
+                                sent.tokens.push_back(new_token);
+                                sentences.push_back(sent);
+                            }
 			}
 
 #if 0
@@ -648,6 +702,8 @@ class FilterContext {
 		    }
 		    stream_item->ratings[ANNOTATOR_ID] = ratings;
 		}
+
+                stream_item->body.sentences[TAGGER_ID] = sentences;
 
 		return any_match;
 	}
