@@ -15,16 +15,6 @@ from streamcorpus_pipeline.stages import BatchTransform
 logger = logging.getLogger(__name__)
 
 
-def get_bin_path():
-    # this file is
-    # py/src/streamcorpus_filter/pipeline_stage.py
-    py_src_streamcorpus_filter_dir = os.path.dirname(__file__)
-    filter_binary = os.path.abspath(
-        os.path.join(
-            py_src_streamcorpus_filter_dir,
-            '../../../cpp/filter-multifast'))
-    return filter_binary
-
 
 # TODO: recast as an IncrementalTransform with persistent subprocess daemon?
 # That could potentially save on startup time by allowing one run of the subprocess to handle multiple chunk files worth of input.
@@ -32,6 +22,8 @@ def get_bin_path():
 # This is made available to yaml as "textfilter_batch" by the
 # entry_points in this project's setup.py
 class FastFilterBatch(BatchTransform):
+    config_name = 'textfilter_batch'
+
     def __init__(self, config):
         self.config = config
         self.names_scf = config.get('names_scf')
@@ -45,7 +37,7 @@ class FastFilterBatch(BatchTransform):
         self.proc = None
 
     def _cmd(self):
-        cmd = [get_bin_path()]
+        cmd = [self.get_bin_path()]
         if self.names_scf:
             cmd += ['--names-scf', self.names_scf]
         elif self.names_simple:
@@ -90,9 +82,29 @@ class FastFilterBatch(BatchTransform):
         os.rename(tmp_path, chunk_path)
 
         logger.debug('filter done')
+        self.proc = None
 
     def shutdown(self):
         if self.proc:
-            self.proc.send_signal(signal.SIGTERM)
+            try:
+                self.proc.send_signal(signal.SIGTERM)
+            except:
+                logger.error('error terminating fast filter subprocess', exc_info=True)
+            self.proc = None
             # TODO? sleep 1; kill -9 ?
 
+    def get_bin_path(self):
+        # this file is
+        # py/src/streamcorpus_filter/pipeline_stage.py
+        filter_binary = self.config.get('bin_path')
+        if filter_binary:
+            if not os.path.isfile(filter_binary):
+                logger.error('config bin_path set but no file there: %r', filter_binary)
+            else:
+                return filter_binary
+        py_src_streamcorpus_filter_dir = os.path.dirname(__file__)
+        filter_binary = os.path.abspath(
+            os.path.join(
+                py_src_streamcorpus_filter_dir,
+                '../../../cpp/filter-multifast'))
+        return filter_binary

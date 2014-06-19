@@ -12,7 +12,7 @@ from setuptools import setup, find_packages
 
 from version import get_git_version
 VERSION, SOURCE_LABEL = get_git_version()
-PROJECT = 'streamcorpus-filter'
+PROJECT = 'streamcorpus_filter'
 AUTHOR = 'Diffeo, Inc.'
 AUTHOR_EMAIL = 'support@diffeo.com'
 DESC = 'example illustration of interfaces to use in making a faster filter in C++'
@@ -113,7 +113,9 @@ setup(
     url=URL,
     packages=find_packages('src', exclude=('tests', 'tests.*')),
     package_dir={'': 'src'},
-    entry_points={'streamcorpus.pipeline.stages': 'textfilter_batch = streamcorpus_filter.pipeline_stage:FastFilterBatch'},
+    entry_points={
+        'streamcorpus_pipeline.stages': 'textfilter_batch = streamcorpus_filter.pipeline_stage:FastFilterBatch',
+    },
     cmdclass={'test': PyTest,
               'install_test': InstallTestDependencies},
     # We can select proper classifiers later
