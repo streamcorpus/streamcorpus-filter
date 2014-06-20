@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 
 
+import atexit
 import logging
 import os
 import random
 import signal
 import subprocess
+import tempfile
 import time
+import urllib
 
 
 from streamcorpus_pipeline.stages import BatchTransform
@@ -36,7 +39,20 @@ class FastFilterBatch(BatchTransform):
         # this will hold the Popen object
         self.proc = None
 
+        self.temp_file_path = None
+
     def _cmd(self):
+        # TODO: replace this url special-case with a general purpose
+        # application level virtual filesystem
+        if self.names_simple and (self.names_simple.startswith('http:') or
+                                  self.names_simple.startswith('https:')):
+            fd, self.temp_file_path = tempfile.mkstemp(suffix='.txt', prefix='names_')
+            atexit.register(os.remove, self.temp_file_path)
+            os.close(fd)
+            logger.info('downloading names %r -> %r', self.names_simple, self.temp_file_path)
+            urllib.urlretrieve(self.names_simple, self.temp_file_path)
+            self.names_simple = self.temp_file_path
+
         cmd = [self.get_bin_path()]
         if self.names_scf:
             cmd += ['--names-scf', self.names_scf]
@@ -75,6 +91,7 @@ class FastFilterBatch(BatchTransform):
                 raise Exception('filter timed out')
             time.sleep(1.0)
         
+        self.proc = None
         if retcode != 0:
             raise Exception('filter returned code: {0}'.format(retcode))
 
@@ -82,7 +99,6 @@ class FastFilterBatch(BatchTransform):
         os.rename(tmp_path, chunk_path)
 
         logger.debug('filter done')
-        self.proc = None
 
     def shutdown(self):
         if self.proc:
