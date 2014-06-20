@@ -1132,10 +1132,12 @@ int main(int argc, char **argv) {
 	clog << "stream items/sec: " << stream_items_per_sec << endl;
 	clog << "MB/sec: "           << mb_per_sec << endl;
 
+#if 0
 	std::ofstream  log("log",std::ofstream::app);       
 	if (!log)  { cerr << "log file open failed\n" ; exit(2); }
 
 	log << stream_items_count << '\t' <<  mb_per_sec << '\t' << stream_items_per_sec << endl;
+#endif
 	}
 
 	ProfilerFlush();
