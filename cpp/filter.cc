@@ -917,6 +917,7 @@ int main(int argc, char **argv) {
 		 ("min-name-length", po::value<int>(&min_name_length), "discard names shorter than this (default 5)")
 		 ("max-name-length", po::value<int>(&max_name_length), "discard names longer than this (default 1000)")
 		 ("verbose",	"performance metrics every 100 items")
+		 ("normalize", "collapse spaces on input, normalize unicode code points")
 		 ("no-normalize",	"don't collapse spaces of input or think about unicode, just match raw bytes")
 		 ("no-search",	"do not search - pass through every item")
 		 ("emit-empties", "instead of just dropping non-matches, emit an empty item in its place")
@@ -933,6 +934,7 @@ int main(int argc, char **argv) {
 	 }
 	 if (vm.count("verbose"))	verbose=true;
 	 if (vm.count("no-normalize"))	do_normalize=false;
+	 if (vm.count("normalize"))	do_normalize=true;
 	 if (vm.count("emit-empties"))	empty_stream_item_instead_of_drop=true;
 
 	 FilterContext fcontext;
