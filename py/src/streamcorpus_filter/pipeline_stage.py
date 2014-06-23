@@ -27,6 +27,16 @@ logger = logging.getLogger(__name__)
 class FastFilterBatch(BatchTransform):
     config_name = 'textfilter_batch'
 
+    default_config = {
+        'names_scf': None,
+        'names_simple': None,
+        'min_name_length': None,
+        'max_name_length': None,
+        'threads': None,
+        'timeout_sec': 3600,
+        'bin_path': None,
+    }
+
     def __init__(self, config):
         self.config = config
         self.names_scf = config.get('names_scf')
