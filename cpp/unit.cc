@@ -68,7 +68,7 @@ int test_normalize() {
 	std::vector<size_t> offsets;
 	assert(normstr.empty());
 	assert(offsets.empty());
-	normalize(content, &normstr, &offsets);
+	normalize(content, &normstr, &offsets, NULL);
 	const char* normtext = normstr.data();
 	normlen = normstr.size();
 	names.set_content(normtext, normtext + normlen);

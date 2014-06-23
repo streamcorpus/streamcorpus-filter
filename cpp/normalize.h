@@ -13,6 +13,6 @@ int lesserUTF8String(const std::string& in, std::string* out, std::vector<size_t
 
 size_t normalize(const char* orig, size_t len, size_t* offsets, char* out);
 
-int normalize(const std::string& orig, std::string* out, std::vector<size_t>* offsets);
+int normalize(const std::string& orig, std::string* out, std::vector<size_t>* offsets, std::vector<size_t>* sourceByteToUCharIndex);
 
 #endif /* NORMALIZE_H */

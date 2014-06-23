@@ -92,7 +92,7 @@ int lesserUnicodeString(const icu::UnicodeString& in, icu::UnicodeString* out, v
 }
 
 
-int lesserUTF8String(const std::string& in, std::string* out, vector<size_t>* offsets) {
+int lesserUTF8String(const std::string& in, std::string* out, vector<size_t>* offsets, vector<size_t>* sourceByteToUCharIndex) {
     // We reach into the utf8 decoding manually here so that we can
     // track byte offsets.
     int errout = 0;
@@ -104,7 +104,7 @@ int lesserUTF8String(const std::string& in, std::string* out, vector<size_t>* of
 	const uint8_t* utf8 = (const uint8_t*)in.data();
 	UChar32 c;
 	while (pos < length) {
-	    uint32_t prevpos = pos;
+	    int32_t prevpos = pos;
 	    U8_NEXT(utf8, pos, length, c);
 	    if (((int32_t)c) < 0) {
 		// report that there was an error, but try to process as much data as possible
@@ -114,6 +114,13 @@ int lesserUTF8String(const std::string& in, std::string* out, vector<size_t>* of
 	    if (offsets != NULL) {
 		rawOffsets.push_back(prevpos);
 	    }
+            if (sourceByteToUCharIndex != NULL) {
+                int32_t sbipos = prevpos;
+                while (sbipos < pos) {
+                    sourceByteToUCharIndex->push_back(raw.length());
+                    sbipos++;
+                }
+            }
 	    raw += c;
 	}
     }
@@ -150,6 +157,9 @@ int lesserUTF8String(const std::string& in, std::string* out, vector<size_t>* of
     return errout;
 }
 
+#else
+
+#warning "compliing without ICU, which makes unicode possible. you should really go get ICU. http://icu-project.org/"
 
 #endif /* HAVE_ICU */
 
@@ -163,6 +173,7 @@ enum State {
 };
 
 
+// semi-depricated. ICU library is preferred for unicode handling.
 // orig: original text
 // len: length of that text
 // offsets: size_t[len] for offsets output
@@ -201,9 +212,9 @@ size_t normalize(const char* orig, size_t len, size_t* offsets, char* out) {
     return outi;
 }
 
-int normalize(const std::string& orig, std::string* out, std::vector<size_t>* offsets) {
+int normalize(const std::string& orig, std::string* out, std::vector<size_t>* offsets, vector<size_t>* sourceByteToUCharIndex) {
 #if HAVE_ICU
-    return lesserUTF8String(orig, out, offsets);
+    return lesserUTF8String(orig, out, offsets, sourceByteToUCharIndex);
 #else
     // fall back to ye olde C and ASCII way
     size_t origlen = orig.size();

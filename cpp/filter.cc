@@ -329,7 +329,7 @@ class FilterContext {
 	    if (do_normalize) {
 		string raw(data, size);
 		string normed;
-		normalize(raw, &normed, NULL);
+		normalize(raw, &normed, NULL, NULL);
 		add_name(normed, targets);
 		return;
 	    }
@@ -420,7 +420,7 @@ class FilterContext {
 		count++;
 		if (do_normalize) {
 		    string normed;
-		    normalize(name, &normed, NULL);
+		    normalize(name, &normed, NULL, NULL);
 		    add_name(normed, matchtargets);
 		} else {
 		    add_name(name, matchtargets);
@@ -539,12 +539,15 @@ class FilterContext {
 		total_content_size += content.size();
 
 		string normstr;
+                // offsets[position in normalized text] == byte offset in source text
 		std::vector<size_t> offsets;
+                // [byte offset in source text] == unicode char index
+                std::vector<size_t> sourceByteToUCharIndex;
 		const char* normtext = NULL;
 		size_t textlen;
 
 		if (do_normalize) {
-			normalize(content, &normstr, &offsets);
+			normalize(content, &normstr, &offsets, &sourceByteToUCharIndex);
 			normtext = normstr.data();
 			textlen = normstr.size();
 		} else {
@@ -579,13 +582,13 @@ class FilterContext {
                             size_t startpos, endpos;
                             string matchtext;
                             if (do_normalize) {
-				startpos = offsets[match.position - match.patterns[0].length];
+				startpos = offsets[match.position - match.patterns[i].length];
 				endpos = offsets[match.position];
                                 matchtext = content.substr(startpos, endpos - startpos);
                             } else {
-				startpos = match.position - match.patterns[0].length;
+				startpos = match.position - match.patterns[i].length;
 				endpos = match.position;
-                                matchtext = string(normtext + startpos, match.patterns[0].length);
+                                matchtext = string(normtext + startpos, match.patterns[i].length);
                             }
                             //string matchtext(normtext + (match.position - match.patterns[i].length), match.patterns[i].length);
 			    TargetIdList* tids = (TargetIdList*)(match.patterns[i].rep.stringy);
@@ -616,13 +619,22 @@ class FilterContext {
                                 token_num++;
                                 new_token.token = matchtext;
 
-                                sc::Offset new_token_offset;
-                                new_token_offset.type = sc::OffsetType::BYTES;
-                                new_token_offset.first = match.position - match.patterns[i].length;
-                                new_token_offset.length = match.patterns[i].length;
-                                new_token_offset.value = matchtext;
-                                new_token_offset.content_form = content_source_name;
-                                new_token.offsets[new_token_offset.type] = new_token_offset;
+                                sc::Offset byte_offset;
+                                byte_offset.type = sc::OffsetType::BYTES;
+                                byte_offset.first = startpos;
+                                byte_offset.length = endpos - startpos;
+                                byte_offset.value = matchtext;
+                                byte_offset.content_form = content_source_name;
+                                new_token.offsets[byte_offset.type] = byte_offset;
+                                if (do_normalize) {
+                                    sc::Offset char_offset;
+                                    char_offset.type = sc::OffsetType::CHARS;
+                                    char_offset.first = sourceByteToUCharIndex[startpos];
+                                    char_offset.length = sourceByteToUCharIndex[endpos] - char_offset.first;
+                                    char_offset.value = matchtext;
+                                    char_offset.content_form = content_source_name;
+                                    new_token.offsets[char_offset.type] = char_offset;
+                                }
 
 
                                 // new_token.pos = "";  // leave Part Of Speech unset for other taggers to deal with.
@@ -880,7 +892,7 @@ int main(int argc, char **argv) {
 	 size_t		max_names	= numeric_limits<size_t>::max();
 	 size_t		max_items	= numeric_limits<size_t>::max();
 	 bool		verbose		= false;
-	 bool		do_normalize	= false;
+	 bool		do_normalize	= true;
 	 int        threads = 1;
 	 int min_name_length = 5;
 	 int max_name_length = 1000;
@@ -905,7 +917,7 @@ int main(int argc, char **argv) {
 		 ("min-name-length", po::value<int>(&min_name_length), "discard names shorter than this (default 5)")
 		 ("max-name-length", po::value<int>(&max_name_length), "discard names longer than this (default 1000)")
 		 ("verbose",	"performance metrics every 100 items")
-		 ("normalize",	"collapse spaces of input")
+		 ("no-normalize",	"don't collapse spaces of input or think about unicode, just match raw bytes")
 		 ("no-search",	"do not search - pass through every item")
 		 ("emit-empties", "instead of just dropping non-matches, emit an empty item in its place")
 	 ;
@@ -920,7 +932,7 @@ int main(int argc, char **argv) {
 		 return 1;
 	 }
 	 if (vm.count("verbose"))	verbose=true;
-	 if (vm.count("normalize"))	do_normalize=true;
+	 if (vm.count("no-normalize"))	do_normalize=false;
 	 if (vm.count("emit-empties"))	empty_stream_item_instead_of_drop=true;
 
 	 FilterContext fcontext;

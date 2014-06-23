@@ -45,7 +45,7 @@ def call_git_describe(abbrev=4):
     try:
         p = Popen(['git', 'describe', '--abbrev=%d' % abbrev],
                   stdout=PIPE, stderr=PIPE, 
-                  cwd=os.path.dirname(__file__))
+                  cwd=os.path.dirname(os.path.abspath(__file__)))
         p.stderr.close()
         describe_line = p.stdout.readlines()[0].strip()
 
