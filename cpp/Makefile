@@ -77,12 +77,12 @@ MULTIFAST_OBJS += sc2/sc2_constants.o sc2/sc2_types.o
 FILTER_MULTIFAST_OBJS = $(MULTIFAST_OBJS) filter.o
 
 filter-multifast:	${FILTER_MULTIFAST_OBJS}
-	$(CXX) $(CXXFLAGS) ${FILTER_MULTIFAST_OBJS} $(LDFLAGS) -licuuc -lthrift -lboost_program_options -o $@
+	$(CXX) $(CXXFLAGS) ${FILTER_MULTIFAST_OBJS} $(LDFLAGS) -lpthread -licuuc -licudata -ldl -lthrift -lboost_program_options -o $@
 
 UNIT_OBJS = $(MULTIFAST_OBJS) unit.o
 
 unit-multifast:	$(UNIT_OBJS)
-	$(CXX) $(CXXFLAGS) $(UNIT_OBJS) $(LDFLAGS) -licuuc -lthrift -lboost_program_options -o $@
+	$(CXX) $(CXXFLAGS) $(UNIT_OBJS) $(LDFLAGS) -lpthread -licuuc -licudata -ldl -lthrift -lboost_program_options -o $@
 
 clean:
 	rm -rf ${FILTER_MULTIFAST_OBJS}
@@ -94,7 +94,7 @@ filter2.o:	filter.cc filternames_types.h filternames_constants.h sc2/sc2_types.h
 	$(CXX) $(CXXFLAGS) -DUSE_STREAMCORPUS_2=1 -c -o $@ filter.cc
 
 filter-multifast-sc2:	filter2.o $(MULTIFAST_OBJS)
-	$(CXX) $(CXXFLAGS) filter2.o $(MULTIFAST_OBJS) $(LDFLAGS) -licuuc -lthrift -lboost_program_options -o $@
+	$(CXX) $(CXXFLAGS) filter2.o $(MULTIFAST_OBJS) $(LDFLAGS) -lpthread -licuuc -licudata -ldl -lthrift -lboost_program_options -o $@
 
 
 test:	filter-multifast unit-multifast .PHONY

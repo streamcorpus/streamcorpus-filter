@@ -113,6 +113,7 @@ setup(
     url=URL,
     packages=find_packages('src', exclude=('tests', 'tests.*')),
     package_dir={'': 'src'},
+    include_package_data=True,
     entry_points={
         'streamcorpus_pipeline.stages': 'textfilter_batch = streamcorpus_filter.pipeline_stage:FastFilterBatch',
     },
